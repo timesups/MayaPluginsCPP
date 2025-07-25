@@ -1,0 +1,9 @@
+/.vs
+*.lib
+*.pdb
+*.log
+*.ipdb
+*.mll
+*.iobj
+*.exp
+/intermedia
