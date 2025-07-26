@@ -155,10 +155,12 @@
   <ItemGroup>
     <ClCompile Include="AbcExportCommand.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="OAlembicFile.cpp" />
     <ClCompile Include="WrapMayaNode.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AbcExportCommand.h" />
+    <ClInclude Include="OAlembicFile.h" />
     <ClInclude Include="WrapMayaNode.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

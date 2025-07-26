@@ -10,7 +10,7 @@
 
 class RootNode {
 public:
-	RootNode(const MDagPath* inDagPath, const RootNode* inParent,const Alembic::AbcCoreAbstract::TimeSampling* inTimeSampling=nullptr):
+	RootNode(const MDagPath* inDagPath, const RootNode* inParent,bool anim=false,const uint32_t timeIndex=0):
 		dagPath(inDagPath), parent(inParent){}
 	~RootNode()
 	{
@@ -19,7 +19,7 @@ public:
 			abcObject = nullptr;
 		}
 	}
-	virtual bool write_to_alembic_file() = 0;
+	virtual MStatus write_to_alembic_file() { return MS::kSuccess; }
 	virtual bool is_intermediate_objet() 
 	{
 		return false;
@@ -32,10 +32,20 @@ public:
 };
 
 
-
 class Transform : public RootNode
 {
-	Transform(const MDagPath* inDagPath, const RootNode* inParent, const Alembic::AbcCoreAbstract::TimeSampling* inTimeSampling = nullptr);
 public:
-	virtual bool write_to_alembic_file() override;
+	Transform(const MDagPath* inDagPath, const RootNode* inParent, bool anim = false, const uint32_t timeIndex = 0);
+	virtual MStatus write_to_alembic_file() override;
+};
+
+
+class Mesh : public RootNode
+{
+public:
+	Mesh(const MDagPath* inDagPath, const RootNode* inParent, bool anim = false, const uint32_t timeIndex = 0);
+	virtual bool is_intermediate_objet() override;
+	virtual MStatus write_to_alembic_file() override;
+private:
+	Alembic::AbcGeom::OV2fGeomParam::Sample uvSample;
 };

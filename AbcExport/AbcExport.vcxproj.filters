@@ -24,12 +24,18 @@
     <ClCompile Include="WrapMayaNode.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="OAlembicFile.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AbcExportCommand.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="WrapMayaNode.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="OAlembicFile.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
