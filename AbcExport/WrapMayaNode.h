@@ -10,8 +10,8 @@
 
 class RootNode {
 public:
-	RootNode(const MDagPath* inDagPath, const RootNode* inParent,bool anim=false,const uint32_t timeIndex=0):
-		dagPath(inDagPath), parent(inParent){}
+	RootNode(const MDagPath* inDagPath):
+		dagPath(inDagPath){}
 	~RootNode()
 	{
 		if (abcObject) {
@@ -27,7 +27,6 @@ public:
 public:
 	//此处是指向常量的指针,因为不需要修改这些量的值
 	const MDagPath *dagPath = nullptr;
-	const RootNode *parent = nullptr;
 	Alembic::Abc::OObject* abcObject = nullptr;
 };
 

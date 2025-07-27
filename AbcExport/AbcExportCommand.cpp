@@ -20,10 +20,8 @@ MStatus AbcExportCommand::doIt(const MArgList& args)
 {
 	int frameStart = 0;
 	int frameEnd = 100;
-	bool anim = true;
-	std::string filePath = "d:/testss.abc";
-
-
+	bool anim = false;
+	std::string filePath = "C:/Users/zcxti/Desktop/testss.abc";
 
 
 	MStatus status;
@@ -42,6 +40,11 @@ MStatus AbcExportCommand::doIt(const MArgList& args)
 		return status;
 	}
 
+	if (selections.length() == 0) {
+		MGlobal::displayWarning("Nothing has been selected");
+		return MS::kFailure;
+	}
+
 	std::vector<MDagPath> dagPaths(selections.length());
 
 	for (int i = 0; i < selections.length(); i++)
@@ -55,11 +58,16 @@ MStatus AbcExportCommand::doIt(const MArgList& args)
 		
 
 
-	if (anim) {
+	if (anim) 
+	{
 		for (int f = frameStart; f <= frameEnd; f++) {
 			MGlobal::viewFrame(f);
 			abcFile.write_alembic_data(dagPaths);
 		}
+	}
+	else
+	{
+		abcFile.write_alembic_data(dagPaths);
 	}
 
 

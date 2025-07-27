@@ -88,14 +88,23 @@ MStatus get_vertices(const MFnMesh& mesh, std::vector<float>& outVertices)
 Transform::Transform(
 	const MDagPath* inDagPath, 
 	const RootNode* inParent, 
-	bool anim, const uint32_t timeIndex):RootNode(inDagPath,inParent,anim,timeIndex)
+	bool anim, 
+	const uint32_t timeIndex):RootNode(inDagPath)
 {
-	MFnTransform transform(*dagPath);
+	
 
-	if(anim)
-		abcObject = new Alembic::AbcGeom::OXform(*parent->abcObject, std::string(transform.name().asChar()), timeIndex);
-	else
-		abcObject = new Alembic::AbcGeom::OXform(*parent->abcObject, std::string(transform.name().asChar()));
+	try
+	{
+		MFnTransform transform(*dagPath);
+		if (anim)
+			abcObject = new Alembic::AbcGeom::OXform(*(inParent->abcObject), std::string(transform.name().asChar()), timeIndex);
+		else
+			abcObject = new Alembic::AbcGeom::OXform(*(inParent->abcObject), std::string(transform.name().asChar()));
+	}
+	catch (const std::exception& e)
+	{
+		MGlobal::displayError(e.what());
+	}
 
 }
 
@@ -127,14 +136,14 @@ MStatus Transform::write_to_alembic_file()
 Mesh::Mesh(
 	const MDagPath* inDagPath,
 	const RootNode* inParent,
-	bool anim, const uint32_t timeIndex) :RootNode(inDagPath, inParent, anim, timeIndex)
+	bool anim, const uint32_t timeIndex) :RootNode(inDagPath)
 {
 	MFnMesh mesh(*dagPath);
 
 	if (anim)
-		abcObject = new Alembic::AbcGeom::OPolyMesh(*parent->abcObject, std::string(mesh.name().asChar()), timeIndex);
+		abcObject = new Alembic::AbcGeom::OPolyMesh(*inParent->abcObject, std::string(mesh.name().asChar()), timeIndex);
 	else
-		abcObject = new Alembic::AbcGeom::OPolyMesh(*parent->abcObject, std::string(mesh.name().asChar()));
+		abcObject = new Alembic::AbcGeom::OPolyMesh(*inParent->abcObject, std::string(mesh.name().asChar()));
 	//uv
 	std::vector<float> uvs;
 	get_uvs(mesh, uvs);

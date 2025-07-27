@@ -131,6 +131,9 @@
       <AdditionalDependencies>Foundation.lib;OpenMaya.lib;Alembic.lib;AlembicImath.lib;hdf5.lib;hdf5_hl.lib;AlembicHalf.lib;AlembicIex.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/export:initializePlugin /export:uninitializePlugin %(AdditionalOptions)</AdditionalOptions>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy "$(TargetPath)" "C:\Users\zcxti\Documents\maya\2018\Plugin\abcExport.mll" /E /I /H /Y</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -151,6 +154,9 @@
       <AdditionalDependencies>Foundation.lib;OpenMaya.lib;Alembic.lib;AlembicImath.lib;hdf5.lib;hdf5_hl.lib;AlembicHalf.lib;AlembicIex.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/export:initializePlugin /export:uninitializePlugin %(AdditionalOptions)</AdditionalOptions>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy "$(TargetPath)" "C:\Users\zcxti\Documents\maya\2018\Plugin\abcExport.mll" /E /I /H /Y</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AbcExportCommand.cpp" />
