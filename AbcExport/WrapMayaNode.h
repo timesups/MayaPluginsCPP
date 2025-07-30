@@ -7,18 +7,14 @@
 #include <Alembic/AbcCoreAbstract/All.h>
 #include <Alembic/AbcCoreOgawa/All.h>
 
+#include <memory>
+
 
 class RootNode {
 public:
-	RootNode(const MDagPath* inDagPath):
+	RootNode(const MDagPath& inDagPath):
 		dagPath(inDagPath){}
-	~RootNode()
-	{
-		if (abcObject) {
-			delete abcObject;
-			abcObject = nullptr;
-		}
-	}
+	~RootNode() = default;
 	virtual MStatus write_to_alembic_file() { return MS::kSuccess; }
 	virtual bool is_intermediate_objet() 
 	{
@@ -26,15 +22,16 @@ public:
 	}
 public:
 	//此处是指向常量的指针,因为不需要修改这些量的值
-	const MDagPath *dagPath = nullptr;
-	Alembic::Abc::OObject* abcObject = nullptr;
+	const MDagPath dagPath;
+	std::shared_ptr<Alembic::Abc::OObject> abcObject = nullptr;
+
 };
 
 
 class Transform : public RootNode
 {
 public:
-	Transform(const MDagPath* inDagPath, const RootNode* inParent, bool anim = false, const uint32_t timeIndex = 0);
+	Transform(const MDagPath& inDagPath, const std::shared_ptr<RootNode> inParent, bool anim = false, const uint32_t timeIndex = 0);
 	virtual MStatus write_to_alembic_file() override;
 };
 
@@ -42,9 +39,9 @@ public:
 class Mesh : public RootNode
 {
 public:
-	Mesh(const MDagPath* inDagPath, const RootNode* inParent, bool anim = false, const uint32_t timeIndex = 0);
+	Mesh(const MDagPath& inDagPath, const std::shared_ptr<RootNode> inParent, bool anim = false, const uint32_t timeIndex = 0);
 	virtual bool is_intermediate_objet() override;
 	virtual MStatus write_to_alembic_file() override;
 private:
-	Alembic::AbcGeom::OV2fGeomParam::Sample uvSample;
+	void write_faceset(const MFnMesh& mesh);
 };

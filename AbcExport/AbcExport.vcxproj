@@ -132,7 +132,7 @@
       <AdditionalOptions>/export:initializePlugin /export:uninitializePlugin %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy "$(TargetPath)" "C:\Users\zcxti\Documents\maya\2018\Plugin\abcExport.mll" /E /I /H /Y</Command>
+      <Command>xcopy "$(TargetPath)" "d:\Documents\maya\2018\plug-ins" /E /I /H /Y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -155,7 +155,7 @@
       <AdditionalOptions>/export:initializePlugin /export:uninitializePlugin %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy "$(TargetPath)" "C:\Users\zcxti\Documents\maya\2018\Plugin\abcExport.mll" /E /I /H /Y</Command>
+      <Command>xcopy "$(TargetPath)" "d:\Documents\maya\2018\plug-ins" /E /I /H /Y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
