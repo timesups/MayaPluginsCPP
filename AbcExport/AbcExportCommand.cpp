@@ -26,29 +26,42 @@ MStatus AbcExportCommand::doIt(const MArgList& args)
 	unsigned int argIndex = 0;
 	MStringArray objNames = args.asStringArray(argIndex,&status);
 	if (!status) {
-		MGlobal::displayError("Faied to get arg 1");
+		MGlobal::displayError("Faied to get arg 1(objNames)");
 		return status;
 	}
 
 
 	MString filePath = args.asString(1, &status);
 	if (!status) {
-		MGlobal::displayError("Faied to get arg 2");
+		MGlobal::displayError("Faied to get arg 2(filePath)");
 		return status;
 	}
 
-
 	int frameStart = args.asInt(2, &status);
 	if (!status) {
-		MGlobal::displayError("Faied to get arg 3 set to default");
+		MGlobal::displayError("Faied to get arg 3(frameStart) set to default");
 		frameStart = 0;
 	}
 
 	int frameEnd = args.asInt(3, &status);
 	if (!status) {
-		MGlobal::displayError("Faied to get arg 4 set to default");
+		MGlobal::displayError("Faied to get arg 4(frameEnd) set to default");
 		frameEnd = 0;
 	}
+
+	int frameStartExpend = args.asInt(4, &status);
+	if(!status)
+	{
+		frameStartExpend = 0;
+	}
+
+	int frameEndExpend = args.asInt(5, &status);
+	if (!status)
+	{
+		frameEndExpend = 0;
+	}
+	//~arg get over
+
 
 	bool anim = false;
 	if ((frameEnd - frameStart) > 0) {
@@ -87,9 +100,24 @@ MStatus AbcExportCommand::doIt(const MArgList& args)
 	//export
 	if (anim) 
 	{
-		for (int f = frameStart; f <= frameEnd; f++) {
-			MGlobal::viewFrame(f);
-			abcFile.write_alembic_data(dagPaths);
+
+		for (int f = frameStart - frameStartExpend; f <= frameEnd + frameEndExpend; f++) 
+		{
+			if(f<frameStart)
+			{
+				MGlobal::viewFrame(frameStart);
+				abcFile.write_alembic_data(dagPaths);
+			}
+			else if(f >= frameStart && f <= frameEnd)
+			{
+				MGlobal::viewFrame(f);
+				abcFile.write_alembic_data(dagPaths);
+			}
+			else
+			{
+				MGlobal::viewFrame(frameEnd);
+				abcFile.write_alembic_data(dagPaths);
+			}
 		}
 	}
 	else
