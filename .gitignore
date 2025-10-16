@@ -7,3 +7,4 @@
 *.iobj
 *.exp
 /intermedia
+/bin

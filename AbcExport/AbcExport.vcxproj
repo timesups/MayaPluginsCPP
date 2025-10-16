@@ -151,7 +151,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>C:\Program Files\Autodesk\Maya2018\devkit\Alembic\lib;C:\Program Files\Autodesk\Maya2018\lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Foundation.lib;OpenMaya.lib;Alembic.lib;AlembicImath.lib;hdf5.lib;hdf5_hl.lib;AlembicHalf.lib;AlembicIex.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Qt5Core.lib;Foundation.lib;OpenMaya.lib;Alembic.lib;AlembicImath.lib;hdf5.lib;hdf5_hl.lib;AlembicHalf.lib;AlembicIex.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/export:initializePlugin /export:uninitializePlugin %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
@@ -166,7 +166,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AbcExportCommand.h" />
+    <ClInclude Include="json.hpp" />
+    <ClInclude Include="Marco.h" />
     <ClInclude Include="OAlembicFile.h" />
+    <ClInclude Include="util.h" />
     <ClInclude Include="WrapMayaNode.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

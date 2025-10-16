@@ -3,15 +3,21 @@
 #include <maya/MStatus.h>
 #include <maya/MGlobal.h>
 #include <maya/MFnMesh.h>
+#include <maya/MFnNurbsCurve.h>
 #include <string>
 
 
 OAlembicFile::OAlembicFile(std::string filePath, bool inAnim, Alembic::AbcCoreAbstract::TimeSampling timeSamping)
 {
 	archive = std::make_shared<Alembic::Abc::OArchive>(Alembic::Abc::OArchive(Alembic::AbcCoreOgawa::WriteArchive(), filePath));
+	archive->setCompressionHint(0);
 	this->anim = inAnim;
 	if (inAnim)
 		timeIndex = archive->addTimeSampling(timeSamping);
+}
+
+OAlembicFile::~OAlembicFile()
+{
 }
 
 void OAlembicFile::write_alembic_data(std::vector<MDagPath>& dags)
@@ -33,7 +39,8 @@ void OAlembicFile::recursion_collect_object(const MDagPath& inDagPath, std::shar
 	if (!status || childCount == 0)
 		return;
 
-	if (!parent) {
+	if (!parent) 
+	{
 		parent = std::make_shared<RootNode>(RootNode(MDagPath()));
 		parent->abcObject = std::make_shared<Alembic::Abc::OObject>(archive->getTop());
 	}
@@ -45,6 +52,8 @@ void OAlembicFile::recursion_collect_object(const MDagPath& inDagPath, std::shar
 	{
 		MObject childObject = inDagPath.child(i);
 		MDagPath childDagPath = MDagPath::getAPathTo(childObject);
+
+		MFnDependencyNode childDepNode(childObject);
 
 		if (childObject.apiType() == MFn::kTransform) 
 		{
@@ -59,7 +68,19 @@ void OAlembicFile::recursion_collect_object(const MDagPath& inDagPath, std::shar
 			std::shared_ptr<Mesh> mesh = std::make_shared<Mesh>(Mesh(childDagPath, transform, anim, timeIndex));
 			objects.push_back(mesh);
 		}
+		else if (childObject.apiType() == MFn::kNurbsCurve)
+		{
+			MFnNurbsCurve mayaCurve(childDagPath);
+			if (mayaCurve.isIntermediateObject())
+				continue;
+
+			std::shared_ptr<Curve> curve = std::make_shared<Curve>(Curve(childDagPath, transform, anim, timeIndex));
+			objects.push_back(curve);
+		}
+		else if (childDepNode.typeName() == "xgmSplineDescription")
+		{
+			std::shared_ptr<Spline> curve = std::make_shared<Spline>(Spline(childDagPath, transform, anim, timeIndex));
+			objects.push_back(curve);
+		}
 	}
-
-
 }

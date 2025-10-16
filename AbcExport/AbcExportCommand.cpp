@@ -1,11 +1,13 @@
-#include "AbcExportCommand.h"
-#include "OAlembicFile.h"
-
 #include <maya/MTime.h>
 #include <maya/MGlobal.h>
 #include <maya/MSelectionList.h>
 #include <maya/MArgList.h>
 #include <maya/MStringArray.h>
+
+#include "AbcExportCommand.h"
+#include "OAlembicFile.h"
+#include "Marco.h"
+
 
 
 static MString MEL_COMMAND = "abcExport";
@@ -20,6 +22,7 @@ AbcExportCommand::~AbcExportCommand()
 
 MStatus AbcExportCommand::doIt(const MArgList& args)
 {
+	TIMESTART
 	MStatus status;
 
 	//get args
@@ -126,6 +129,8 @@ MStatus AbcExportCommand::doIt(const MArgList& args)
 	}
 
 	MGlobal::displayInfo("Export successful");
+
+	TIMEEND
 	return MS::kSuccess;
 }
 

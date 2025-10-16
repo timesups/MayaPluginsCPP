@@ -1,414 +1,23 @@
-#include "WrapMayaNode.h"
+//maya
+#include <maya/MFnDependencyNode.h>
 #include <maya/MFnTransform.h>
-#include <maya/MMatrix.h>
 #include <maya/MGlobal.h>
 #include <maya/MFnMesh.h>
-#include <maya/MFloatArray.h>
-#include <maya/MFloatVectorArray.h>
-#include <maya/MPointArray.h>
-#include <maya/MItMeshPolygon.h>
-#include <maya/MPoint.h>
-#include <maya/MBoundingBox.h>
-#include <maya/MObjectArray.h>
-#include <maya/MItDependencyGraph.h>
-#include <maya/MFnSet.h>
-#include <maya/MSelectionList.h>
-#include <maya/MItSelectionList.h>
-#include <maya/MIntArray.h>
 #include <maya/MFnSingleIndexedComponent.h>
-#include <maya/MStringArray.h>
-#include <maya/MFloatPointArray.h>
+#include <maya/MMatrix.h>
+#include <maya/MBoundingBox.h>
+#include <maya/MFnNurbsCurve.h>
+#include <maya/MItDag.h>
 
+//
+#include "WrapMayaNode.h"
+#include "util.h"
 
-void fillTopology(
-	const MFnMesh&lMesh,
-	std::vector<float>& oPoints,
-	std::vector<Alembic::Util::int32_t>& oFacePoints,
-	std::vector<Alembic::Util::int32_t>& oPointCounts)
-{
-	MStatus status = MS::kSuccess;
-	if (!status)
-	{
-		MGlobal::displayError("MFnMesh() failed for MayaMeshWriter");
-	}
 
-	MFloatPointArray pts;
+using namespace Alembic;
+using namespace std;
 
-	lMesh.getPoints(pts);
-
-	if (pts.length() < 3 && pts.length() > 0)
-	{
-		MString err = lMesh.fullPathName() +
-			" is not a valid mesh, because it only has ";
-		err += pts.length();
-		err += " points.";
-		MGlobal::displayError(err);
-		return;
-	}
-
-	unsigned int numPolys = lMesh.numPolygons();
-
-	if (numPolys == 0)
-	{
-		MGlobal::displayWarning(lMesh.fullPathName() + " has no polygons.");
-		return;
-	}
-
-	unsigned int i;
-	int j;
-
-	oPoints.resize(pts.length() * 3);
-
-	// repack the float
-	for (i = 0; i < pts.length(); i++)
-	{
-		size_t local = i * 3;
-		oPoints[local] = pts[i].x;
-		oPoints[local + 1] = pts[i].y;
-		oPoints[local + 2] = pts[i].z;
-	}
-
-	/*
-		oPoints -
-		oFacePoints - vertex list
-		oPointCounts - number of points per polygon
-	*/
-
-	MIntArray faceArray;
-
-	for (i = 0; i < numPolys; i++)
-	{
-		lMesh.getPolygonVertices(i, faceArray);
-
-		if (faceArray.length() < 3)
-		{
-			MGlobal::displayWarning("Skipping degenerate polygon");
-			continue;
-		}
-
-		// write backwards cause polygons in Maya are in a different order
-		// from Renderman (clockwise vs counter-clockwise?)
-		int faceArrayLength = faceArray.length() - 1;
-		for (j = faceArrayLength; j > -1; j--)
-		{
-			oFacePoints.push_back(faceArray[j]);
-		}
-
-		oPointCounts.push_back(faceArray.length());
-	}
-}
-
-
-MString stripNamespaces(const MString& iNodeName, unsigned int iDepth=1)
-{
-	if (iDepth == 0)
-	{
-		return iNodeName;
-	}
-
-	MStringArray strArray;
-	if (iNodeName.split(':', strArray) == MS::kSuccess)
-	{
-		unsigned int len = strArray.length();
-
-		// we want to strip off more namespaces than what we have
-		// so we just return the last name
-		if (len == 0)
-		{
-			return iNodeName;
-		}
-		else if (len <= iDepth + 1)
-		{
-			return strArray[len - 1];
-		}
-
-		MString name;
-		for (unsigned int i = iDepth; i < len - 1; ++i)
-		{
-			name += strArray[i];
-			name += ":";
-		}
-		name += strArray[len - 1];
-		return name;
-	}
-
-	return iNodeName;
-}
-
-MStatus get_conn_shader(const MObject& sg,MFnDependencyNode& shader)
-{
-	MStatus status;
-	MFnDependencyNode sgNode(sg);
-	MPlug plugSurfaceShader = sgNode.findPlug("surfaceShader", &status);
-	if (!status)
-		return status;
-	MObject shaderNode = plugSurfaceShader.source().node();
-	shader.setObject(shaderNode);
-
-	return status;
-}
-
-struct mObjectCmp
-{
-	bool operator()(const MObject& o1, const MObject& o2) const
-	{
-		return strcmp(MFnDependencyNode(o1).name().asChar(), MFnDependencyNode(o2).name().asChar()) < 0;
-	}
-};
-typedef std::map <MObject, MSelectionList, mObjectCmp> GetMembersMap;
-
-MStatus getSetComponents(const MDagPath& dagPath, const MObject& SG,MObject& compObj)
-{
-	const MString instObjGroupsAttrName("instObjGroups");
-	GetMembersMap gmMap;
-
-	// Check if SG is really a shading engine
-	if (SG.hasFn(MFn::kShadingEngine) != true)
-	{
-		MFnDependencyNode fnDepNode(SG);
-		MString message;
-		message.format("Node ^1s is not a valid shading engine...", fnDepNode.name());
-		MGlobal::displayError(message);
-
-		return MS::kFailure;
-	}
-
-	// get the instObjGroups iog plug
-	MStatus status;
-	MFnDependencyNode depNode(dagPath.node());
-	MPlug iogPlug(depNode.findPlug(instObjGroupsAttrName, false, &status));
-	if (status == MS::kFailure)
-		return MS::kFailure;
-
-	// if there are no elements,  this shading group is not connected as a face set
-	if (iogPlug.numElements() <= 0)
-		return MS::kFailure;
-
-	// the first element should always be connected as a source
-	MPlugArray iogConnections;
-	iogPlug.elementByLogicalIndex(0, &status).connectedTo(iogConnections, false, true, &status);
-	if (status == MS::kFailure)
-		return MS::kFailure;
-
-	// Function set for the shading engine
-	MFnSet fnSet(SG);
-
-	// Retrieve members
-	MSelectionList selList;
-	GetMembersMap::iterator it = gmMap.find(SG);
-	if (it != gmMap.end())
-		selList = it->second;
-	else
-	{
-		fnSet.getMembers(selList, false);
-		gmMap[SG] = selList;
-	}
-
-	// Iteration through the list
-	MDagPath            curDagPath;
-	MItSelectionList    itSelList(selList);
-	for (; itSelList.isDone() != true; itSelList.next())
-	{
-		// Test if it's a face mapping
-		if (itSelList.hasComponents() == true)
-		{
-			itSelList.getDagPath(curDagPath, compObj);
-
-			// Test if component object is valid and if it's the right object
-			if ((compObj.isNull() == false) && (curDagPath == dagPath))
-			{
-				return MS::kSuccess;
-			}
-		}
-	}
-
-	// SG is a shading engine but has no components connected to the dagPath.
-	// This means we have a whole object mapping!
-	return MS::kFailure;
-}
-
-
-MObjectArray get_out_connected_SG(const MDagPath& shapeDPath) 
-{
-	MStatus status;
-
-	MObjectArray connSG;
-	MObject obj(shapeDPath.node());
-
-	MItDependencyGraph itDG(
-		obj, 
-		MFn::kShadingEngine,
-		MItDependencyGraph::kDownstream, 
-		MItDependencyGraph::kBreadthFirst, 
-		MItDependencyGraph::kNodeLevel,
-		&status);
-
-	if (!status)
-		return connSG;
-
-	itDG.enablePruningOnFilter();
-
-	for (; itDG.isDone() != true; itDG.next()) {
-		connSG.append(itDG.thisNode());
-	}
-}
-
-MStatus get_uvs(const MFnMesh& mesh, std::vector<float>& outuvs, std::vector<Alembic::Util::uint32_t>& indices)
-{
-	MStatus status;
-
-	MFloatArray uArray;
-	MFloatArray vArray;
-	status = mesh.getUVs(uArray, vArray);
-
-	if (!status)
-	{
-		return status;
-	}
-	outuvs.reserve(uArray.length() * 2);
-	for (int i = 0; i < uArray.length(); i++)
-	{
-		outuvs.push_back(uArray[i]);
-		outuvs.push_back(vArray[i]);
-	}
-
-	indices.reserve(mesh.numFaceVertices(&status));
-	int faceCount = mesh.numPolygons(&status);
-	if (!status)
-		return status;
-	int uvId = 0;
-	for (int f = 0; f < faceCount; f++) {
-		int len = mesh.polygonVertexCount(f, &status);
-		if (!status)
-			return status;
-		for (int i = len - 1; i >= 0; i--) {
-			status = mesh.getPolygonUVid(f, i,uvId);
-			if (!status)
-				return status;
-			indices.push_back(uvId);
-		}
-	}
-
-	return MS::kSuccess;
-}
-
-void get_normals(const MFnMesh& lMesh,std::vector<float>& oNormals)
-{
-	MStatus status = MS::kSuccess;
-	MPlug plug = lMesh.findPlug("noNormals", true, &status);
-	if (status == MS::kSuccess && plug.asBool() == true)
-	{
-		return;
-	}
-	else if (status != MS::kSuccess)
-	{
-		bool userSetNormals = false;
-
-		// go through all per face-vertex normals and verify if any of them
-		// has been tweaked by users
-		unsigned int numFaces = lMesh.numPolygons();
-		for (unsigned int faceIndex = 0; faceIndex < numFaces; faceIndex++)
-		{
-			MIntArray normals;
-			lMesh.getFaceNormalIds(faceIndex, normals);
-			unsigned int numNormals = normals.length();
-			for (unsigned int n = 0; n < numNormals; n++)
-			{
-				if (lMesh.isNormalLocked(normals[n]))
-				{
-					userSetNormals = true;
-					break;
-				}
-			}
-		}
-
-		// we looped over all the normals and they were all calculated by Maya
-		// so we just need to check to see if any of the edges are hard
-		// before we decide not to write the normals.
-		if (!userSetNormals)
-		{
-			bool hasHardEdges = false;
-
-			// go through all edges and verify if any of them is hard edge
-			unsigned int numEdges = lMesh.numEdges();
-			for (unsigned int edgeIndex = 0; edgeIndex < numEdges; edgeIndex++)
-			{
-				if (!lMesh.isEdgeSmooth(edgeIndex))
-				{
-					hasHardEdges = true;
-					break;
-				}
-			}
-
-			// all the edges were smooth, we don't need to write the normals
-			if (!hasHardEdges)
-			{
-				return;
-			}
-		}
-	}
-
-
-	bool flipNormals = false;
-	plug = lMesh.findPlug("flipNormals", true, &status);
-	if (status == MS::kSuccess)
-		flipNormals = plug.asBool();
-
-	// get the per vertex per face normals (aka vertex)
-	unsigned int numFaces = lMesh.numPolygons();
-
-	for (unsigned int faceIndex = 0; faceIndex < numFaces; faceIndex++)
-	{
-		MIntArray vertexList;
-		lMesh.getPolygonVertices(faceIndex, vertexList);
-
-		// re-pack the order of normals in this vector before writing into prop
-		// so that Renderman can also use it
-		unsigned int numVertices = vertexList.length();
-		for (int v = numVertices - 1; v >= 0; v--)
-		{
-			unsigned int vertexIndex = vertexList[v];
-			MVector normal;
-			lMesh.getFaceVertexNormal(faceIndex, vertexIndex, normal);
-
-			if (flipNormals)
-				normal = -normal;
-
-			oNormals.push_back(static_cast<float>(normal[0]));
-			oNormals.push_back(static_cast<float>(normal[1]));
-			oNormals.push_back(static_cast<float>(normal[2]));
-		}
-	}
-}
-
-MStatus get_vertices(const MFnMesh& mesh, std::vector<float>& outVertices)
-{
-	MStatus status;
-
-	int numVertices = mesh.numVertices(&status);
-	if (!status)
-		return status;
-
-	outVertices.reserve(numVertices * 3);
-
-	MPointArray points;
-
-	status = mesh.getPoints(points);
-	if (!status)
-		return status;
-	for (int i = 0; i < points.length(); i++)
-	{
-		const MPoint point = points[i];
-		outVertices.push_back(point.x);
-		outVertices.push_back(point.y);
-		outVertices.push_back(point.z);
-	}
-
-
-	return MS::kSuccess;
-}
-
-
+//Transform
 Transform::Transform(
 	const MDagPath& inDagPath, 
 	const std::shared_ptr<RootNode> inParent,
@@ -442,19 +51,17 @@ MStatus Transform::write_to_alembic_file()
 	return status;
 }
 
-
+//Mesh
 Mesh::Mesh(
 	const MDagPath& inDagPath,
 	const std::shared_ptr<RootNode> inParent,
 	bool anim, const uint32_t timeIndex) :RootNode(inDagPath)
 {
 	MFnMesh mesh(dagPath);
-
 	if (anim)
 		abcObject = std::make_shared<Alembic::AbcGeom::OPolyMesh>(Alembic::AbcGeom::OPolyMesh(*(inParent->abcObject), std::string(mesh.name().asChar()), timeIndex));
 	else
 		abcObject = std::make_shared<Alembic::AbcGeom::OPolyMesh>(Alembic::AbcGeom::OPolyMesh(*(inParent->abcObject), std::string(mesh.name().asChar())));
-	
 	write_faceset(mesh);
 
 }
@@ -625,4 +232,232 @@ void Mesh::write_faceset(const MFnMesh&mesh)
 		faceSetSchema.setFaceExclusivity(Alembic::AbcGeom::kFaceSetExclusive);
 	}
 }
+
+//curve
+Curve::Curve(const MDagPath& inDagPath, const std::shared_ptr<RootNode> inParent, bool anim, const uint32_t timeIndex) :RootNode(inDagPath)
+{
+	MFnNurbsCurve curve(dagPath);
+	if (anim)
+		abcObject = std::make_shared<Alembic::AbcGeom::OCurves>(Alembic::AbcGeom::OCurves(*(inParent->abcObject), std::string(curve.name().asChar()), timeIndex));
+	else
+		abcObject = std::make_shared<Alembic::AbcGeom::OCurves>(Alembic::AbcGeom::OCurves(*(inParent->abcObject), std::string(curve.name().asChar())));
+
+}
+
+MStatus Curve::write_to_alembic_file()
+{
+	MStatus status;
+	MFnNurbsCurve curve(dagPath);
+	shared_ptr<AbcGeom::OCurves> abcCurve = std::static_pointer_cast<AbcGeom::OCurves>(abcObject);
+
+	AbcGeom::OCurvesSchema::Sample curveSample;
+
+
+	//basis
+	curveSample.setBasis(AbcGeom::BasisType::kBsplineBasis);
+	curveSample.setWrap(AbcGeom::CurvePeriodicity::kNonPeriodic);
+
+	
+	//type
+	if (curve.degree() == 3)
+		curveSample.setType(AbcGeom::CurveType::kCubic);
+	else if (curve.degree() == 1)
+		curveSample.setType(AbcGeom::CurveType::kLinear);
+	else
+		curveSample.setType(AbcGeom::CurveType::kVariableOrder);
+
+
+
+	uint8_t order = curve.degree() + 1;
+	int nVertex = curve.numCVs();
+
+
+	std::vector< uint8_t> orders = { order };
+	std::vector<int> vertices = { nVertex };
+
+	curveSample.setCurvesNumVertices(Alembic::Abc::Int32ArraySample(vertices));
+
+	curveSample.setOrders(Abc::UcharArraySample(orders));
+	//knots
+	std::vector<float> knots;
+
+	MDoubleArray knotsArray;
+	curve.getKnots(knotsArray);
+	knots.reserve(knotsArray.length() + 2);
+	if (knotsArray.length() > 1)
+	{
+		unsigned int knotsLength = knotsArray.length();
+		if (knotsArray[0] == knotsArray[knotsLength - 1] ||
+			knotsArray[0] == knotsArray[1])
+		{
+			knots.push_back(static_cast<float>(knotsArray[0]));
+		}
+		else
+		{
+			knots.push_back(static_cast<float>(2 * knotsArray[0] - knotsArray[1]));
+		}
+		for (unsigned int j = 0; j < knotsLength; ++j)
+		{
+			knots.push_back(static_cast<float>(knotsArray[j]));
+		}
+		if (knotsArray[0] == knotsArray[knotsLength - 1] ||
+			knotsArray[knotsLength - 1] == knotsArray[knotsLength - 2])
+		{
+			knots.push_back(static_cast<float>((knotsArray[knotsLength - 1])));
+		}
+		else
+		{
+			knots.push_back(static_cast<float>(2 * knotsArray[knotsLength - 1] -
+				knotsArray[knotsLength - 2]));
+		}
+	}
+	curveSample.setKnots(Abc::FloatArraySample(knots));
+
+	//positions
+	std::vector<float> Positions;
+	MPointArray cvArray;
+	curve.getCVs(cvArray);
+	for (int i = 0; i < nVertex; i++) 
+	{
+		Positions.push_back(cvArray[i].x);
+		Positions.push_back(cvArray[i].y);
+		Positions.push_back(cvArray[i].z);
+	}
+	curveSample.setPositions(Abc::P3fArraySample((const Imath::V3f*)Positions.data(), Positions.size() / 3));
+	//load sample
+	abcCurve->getSchema().set(curveSample);
+
+
+	return MS::kSuccess;
+}
+
+void Curve::write_group_name(const std::string& groupName)
+{
+}
+
+void Curve::write_is_guide(bool is_guide)
+{
+}
+
+void Curve::write_group_id(std::vector<int> group_id)
+{
+}
+
+
+
+//Spline
+Spline::Spline(const MDagPath& inDagPath, const std::shared_ptr<RootNode> inParent, bool anim, const uint32_t timeIndex):RootNode(inDagPath)
+{
+	MFnDependencyNode splineNode(dagPath.node());
+	if (anim)
+		abcObject = std::make_shared<Alembic::AbcGeom::OCurves>(Alembic::AbcGeom::OCurves(*(inParent->abcObject), std::string(splineNode.name().asChar()), timeIndex));
+	else
+		abcObject = std::make_shared<Alembic::AbcGeom::OCurves>(Alembic::AbcGeom::OCurves(*(inParent->abcObject), std::string(splineNode.name().asChar())));
+}
+
+MStatus Spline::write_to_alembic_file()
+{
+	MStatus status;
+	MFnDependencyNode splineNode(dagPath.node());
+	std::vector<std::vector<uint64_t>> PrimitiveInfosList;
+	std::vector<std::vector<float>> PositionsList;
+	std::vector<std::vector<float>> WidthDataList;
+	GetSplineData(splineNode, PrimitiveInfosList, PositionsList, WidthDataList, false);
+
+	shared_ptr<AbcGeom::OCurves> abcCurve = std::static_pointer_cast<AbcGeom::OCurves>(abcObject);
+	AbcGeom::OCurvesSchema::Sample curveSample;
+
+
+	int numCurves = 0;
+	uint64_t numCvs = 0;
+	for (int i=0;i<PrimitiveInfosList.size();i++)
+	{
+		numCurves += (PrimitiveInfosList[i].size()/2);
+
+		for(int j=0;j<PrimitiveInfosList[i].size();j+=2)
+		{
+			numCvs += PrimitiveInfosList[i][j];
+		}
+
+	}
+
+	std::vector<uint8_t> orders(numCurves);
+	std::vector<int> nVertices(numCurves);
+
+
+	curveSample.setBasis(AbcGeom::kBsplineBasis);
+	curveSample.setWrap(AbcGeom::CurvePeriodicity::kNonPeriodic);
+	curveSample.setType(AbcGeom::kCubic);
+
+	int degree = 3;
+
+	std::vector<Imath::V3f> pointArray(numCvs);
+	std::vector<float> widthArray(numCvs);
+
+
+	std::vector<float> knots;
+
+	int curveIndex = 0;
+	int cvIndex = 0;
+	
+
+	for(int i=0;i<PrimitiveInfosList.size();i++)
+	{
+		auto primitiveInfos = PrimitiveInfosList[i];
+		auto positionData = PositionsList[i];
+		auto widthData = WidthDataList[i];
+
+		for (int j = 0; j < primitiveInfos.size(); j += 2)
+		{
+			uint64_t offset = primitiveInfos[j];
+			int length = primitiveInfos[j + 1];
+
+			if (length < 2)
+				continue;
+
+			uint64_t startAddr = offset * 3;
+			for(int k=0;k<length;k++)
+			{
+				pointArray[cvIndex].x = positionData[startAddr];
+				pointArray[cvIndex].y = positionData[startAddr+1];
+				pointArray[cvIndex].z = positionData[startAddr+2];
+
+				widthArray[cvIndex] = widthData[offset + k];
+				startAddr += 3;
+				cvIndex += 1;
+			}
+
+			orders[curveIndex] = degree + 1;
+			nVertices[curveIndex] = length;
+
+			int knotsInsideNum = length - degree + 1;
+
+			int knotsLitSize = 2 * degree + knotsInsideNum;
+			std::vector<int> knotsList(knotsLitSize);
+			std::fill_n(knotsList.begin(), degree, 0);
+
+			for(int n=0;n<knotsInsideNum;n++)
+			{
+				knotsList[degree + n] = n;
+			}
+			std::fill_n(knotsList.begin() + degree + knotsInsideNum, degree, knotsInsideNum - 1);
+			for (auto value : knotsList)
+				knots.push_back(static_cast<float>(value));
+			curveIndex += 1;
+		}
+
+	}
+
+
+	curveSample.setCurvesNumVertices(nVertices);
+	curveSample.setPositions(pointArray);
+	curveSample.setKnots(Abc::FloatArraySample(knots));
+	curveSample.setOrders(orders);
+	//write width
+	curveSample.setWidths(AbcGeom::OFloatGeomParam::Sample(widthArray, AbcGeom::GeometryScope::kVertexScope));
+
+	abcCurve->getSchema().set(curveSample);
+	return MS::kSuccess;
+}
+
 

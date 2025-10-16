@@ -7,10 +7,10 @@
 #include <Alembic/AbcCoreAbstract/All.h>
 #include <Alembic/AbcCoreOgawa/All.h>
 
-#include <memory>
 
 
-class RootNode {
+class RootNode 
+{
 public:
 	RootNode(const MDagPath& inDagPath):
 		dagPath(inDagPath){}
@@ -44,4 +44,23 @@ public:
 	virtual MStatus write_to_alembic_file() override;
 private:
 	void write_faceset(const MFnMesh& mesh);
+};
+
+class Curve : public RootNode
+{
+public:
+	Curve(const MDagPath& inDagPath, const std::shared_ptr<RootNode> inParent, bool anim = false, const uint32_t timeIndex = 0);
+	virtual MStatus write_to_alembic_file() override;
+	void write_group_name(const std::string& groupName);
+	void write_is_guide(bool is_guide);
+	void write_group_id(std::vector<int> group_id);
+
+};
+
+
+class Spline : public RootNode
+{
+public:
+	Spline(const MDagPath& inDagPath, const std::shared_ptr<RootNode> inParent, bool anim = false, const uint32_t timeIndex = 0);
+	virtual MStatus write_to_alembic_file() override;
 };

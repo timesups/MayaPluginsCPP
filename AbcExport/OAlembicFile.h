@@ -7,7 +7,7 @@
 class OAlembicFile {
 public:
 	OAlembicFile(std::string filePath, bool anim, Alembic::AbcCoreAbstract::TimeSampling timeSamping);
-	~OAlembicFile() = default;
+	~OAlembicFile();
 	void write_alembic_data(std::vector<MDagPath>& dags);
 private:
 	void recursion_collect_object(const MDagPath& inDagPath, std::shared_ptr<RootNode> parent);
