@@ -46,6 +46,8 @@ MayaSplineWriter::MayaSplineWriter(MDagPath& iDag, Alembic::Abc::OObject& iParen
     Alembic::AbcGeom::OCurves obj(iParent, name.asChar(), iTimeIndex);
     mSchema = obj.getSchema();
 
+    groupName = GetAttribute<MString>(mRootDagPath.transform(), attrGroupName, "").asChar();
+
 
     if (!mIsAnimated || iArgs.setFirstAnimShape) 
     {
@@ -178,11 +180,10 @@ unsigned int MayaSplineWriter::getNumCurves()
 void MayaSplineWriter::WriteGroupName()
 {
     auto cp = mSchema.getArbGeomParams();
-    std::string value = GetAttribute<MString>(mRootDagPath.transform(), attrGroupName, "").asChar();
-    Alembic::Abc::OStringArrayProperty groupName = Alembic::Abc::OStringArrayProperty(cp, groomGroupNameAttrName);
+    Alembic::Abc::OStringArrayProperty groupNameProperty = Alembic::Abc::OStringArrayProperty(cp, groomGroupNameAttrName);
     std::vector<std::string> values;
-    values.push_back(value);
-    groupName.set(Alembic::Abc::StringArraySample(values));
+    values.push_back(groupName);
+    groupNameProperty.set(Alembic::Abc::StringArraySample(values));
 }
 
 void MayaSplineWriter::WriteGroupId(int group_id)

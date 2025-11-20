@@ -618,13 +618,7 @@ try
             // resolve the relative path
             MFileObject absoluteFile;
             absoluteFile.setRawFullName(fileName.c_str());
-#if MAYA_API_VERSION < 201300
-            if (absoluteFile.resolvedFullName() !=
-                absoluteFile.expandedFullName())
-            {
-#else
             if (!MFileObject::isAbsolutePath(fileName.c_str())) {
-#endif
                 // this is a relative path
                 MString absoluteFileName = directoryName + "/" +
                     fileName.c_str();
@@ -878,13 +872,7 @@ try
         else if (!hasRoot && !jobArgs.useSelectionList)
         {
             MSelectionList sel;
-#if MAYA_API_VERSION >= 201100
             sel.add("|*", true);
-#else
-            // older versions of Maya will not be able to find top level nodes
-            // within namespaces
-            sel.add("|*");
-#endif
             unsigned int numRoots = sel.length();
             for (unsigned int i = 0; i < numRoots; ++i)
             {

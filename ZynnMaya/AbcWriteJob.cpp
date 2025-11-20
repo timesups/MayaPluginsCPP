@@ -499,6 +499,19 @@ void AbcWriteJob::setup(double iFrame, MayaTransformWriterPtr iParent, GetMember
             MayaSplineWriterPtr spline(new MayaSplineWriter(
                 mCurDag, obj, mShapeTimeIndex,mArgs));
 
+            mSplineListForAttr.push_back(spline);
+
+            auto result = std::find(groupNames.begin(), groupNames.end(), spline->groupName);
+            if(result == groupNames.end())
+            {
+                groupNames.push_back(spline->groupName);
+            }
+
+
+
+
+
+
             if (spline->isAnimated() && mShapeTimeIndex != 0)
             {
                 mSplineList.push_back(spline);
@@ -512,7 +525,6 @@ void AbcWriteJob::setup(double iFrame, MayaTransformWriterPtr iParent, GetMember
                 mStats.mCurveStaticCurves++;
                 mStats.mCurveStaticCVs += spline->getNumCVs();
             }
-
         }
         else
         {
@@ -600,7 +612,23 @@ bool AbcWriteJob::eval(double iFrame)
         {
             mCurDag = *it;
             setup(iFrame * util::spf(), MayaTransformWriterPtr(), gmMap);
+
         }
+        //sort groupnames
+        std::sort(groupNames.begin(), groupNames.end());
+
+
+        //write attribute
+        std::vector<MayaSplineWriterPtr>::iterator spIt, spEnd;
+        spEnd = mSplineListForAttr.end();
+        for (spIt = mSplineListForAttr.begin(); spIt != spEnd; spIt++)
+        {
+            (*spIt)->WriteGroupName();
+            auto result = std::find(groupNames.begin(), groupNames.end(), (*spIt)->groupName);
+            int index = std::distance(groupNames.begin(), result);
+            (*spIt)->WriteGroupId(index);
+        }
+
 
         perFrameCallback(iFrame);
     }

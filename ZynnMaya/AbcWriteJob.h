@@ -137,6 +137,9 @@ class AbcWriteJob
     std::vector< MayaMeshWriterPtr > mMeshList;
     std::vector< MayaNurbsCurveWriterPtr > mCurveList;
     std::vector< MayaSplineWriterPtr > mSplineList;
+    std::vector< MayaSplineWriterPtr > mSplineListForAttr;
+
+    std::vector<std::string> groupNames;
 
 
     // helper dag path map for bounding box calculation
@@ -176,7 +179,6 @@ class AbcWriteJob
     AbcWriteJobStatistics mStats;
     JobArgs mArgs;
 
-    std::vector<std::string> groupNames;
 };
 
 typedef Alembic::Util::shared_ptr < AbcWriteJob > AbcWriteJobPtr;

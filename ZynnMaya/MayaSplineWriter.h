@@ -34,7 +34,12 @@ public:
     MString attrCharacterName = "CharachterName";
     MString attrExportGuideAnim = "GuideAnimation";
     MString attrExportSplineAnim = "SplineAnimaiton";
+
+public:
+    std::string groupName;
+    int groupID;
 private:
+
     bool mIsAnimated;
     MDagPath mRootDagPath;
 
