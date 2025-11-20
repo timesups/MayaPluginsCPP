@@ -2,7 +2,7 @@
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LocalDebuggerCommand>C:\Program Files\Autodesk\Maya2018\bin\maya.exe</LocalDebuggerCommand>
-    <LocalDebuggerCommandArguments>"d:\Desktop\Xgen\File.mb"</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    <LocalDebuggerCommandArguments>"d:\Desktop\Xgen\File.mb"</LocalDebuggerCommandArguments>
   </PropertyGroup>
 </Project>

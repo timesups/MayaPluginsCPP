@@ -13,39 +13,60 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="头文件\tools">
+      <UniqueIdentifier>{24c4d53c-b28d-494a-b209-2765fdf62f75}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
+    <ClCompile Include="AbcExport.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="AbcExportCommand.cpp">
+    <ClCompile Include="AbcWriteJob.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="WrapMayaNode.cpp">
+    <ClCompile Include="MayaMeshWriter.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="OAlembicFile.cpp">
+    <ClCompile Include="MayaNurbsCurveWriter.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MayaTransformWriter.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MayaUtility.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MayaSplineWriter.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="AbcExportCommand.h">
+    <ClInclude Include="AbcExport.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="WrapMayaNode.h">
+    <ClInclude Include="AbcWriteJob.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="OAlembicFile.h">
+    <ClInclude Include="Foundation.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MayaMeshWriter.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MayaNurbsCurveWriter.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MayaTransformWriter.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MayaUtility.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MayaSplineWriter.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="json.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="util.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Marco.h">
-      <Filter>头文件</Filter>
+      <Filter>头文件\tools</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
