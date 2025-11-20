@@ -144,6 +144,7 @@
   <ItemGroup>
     <ClCompile Include="AbcExport.cpp" />
     <ClCompile Include="AbcWriteJob.cpp" />
+    <ClCompile Include="main.cpp" />
     <ClCompile Include="MayaMeshWriter.cpp" />
     <ClCompile Include="MayaNurbsCurveWriter.cpp" />
     <ClCompile Include="MayaSplineWriter.cpp" />

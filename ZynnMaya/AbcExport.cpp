@@ -2,7 +2,6 @@
 #include "AbcWriteJob.h"
 #include "MayaUtility.h"
 
-#include <maya/MFnPlugin.h>
 #include <maya/MFileObject.h>
 #include <maya/MItDependencyNodes.h>
 #include <fstream>
@@ -10,9 +9,14 @@
 
 // ##########################ABC Export New###########################
 
-char AbcExportNewCommandName[] = "AbcExportN";
+
 
 namespace AbcA = Alembic::AbcCoreAbstract;
+
+
+
+std::string AbcExport::AbcExportNewCommandName = "AbcExportN";
+
 
 AbcExport::AbcExport()
 {
@@ -1117,44 +1121,3 @@ catch (std::exception & e)
 // ~##########################ABC Export New###########################~
 
 
-MStatus initializePlugin(MObject obj)
-{
-    MStatus status;
-    MFnPlugin plugin(obj, "Alembic", ABCEXPORT_VERSION, "Any");
-
-    status = plugin.registerCommand(
-        AbcExportNewCommandName, AbcExport::creator,
-        AbcExport::createSyntax );
-
-    if (!status)
-    {
-        status.perror("registerCommand");
-    }
-
-	MGlobal::executeCommandOnIdle("AlembicCreateUI");
-
-    MString info = "AbcExport v";
-    info += ABCEXPORT_VERSION;
-    info += " using ";
-    info += Alembic::Abc::GetLibraryVersion().c_str();
-    MGlobal::displayInfo(info);
-
-    return status;
-}
-
-MStatus uninitializePlugin(MObject obj)
-{
-    MStatus status;
-    MFnPlugin plugin(obj);
-
-    status = plugin.deregisterCommand(AbcExportNewCommandName);
-
-    if (!status)
-    {
-        status.perror("deregisterCommand");
-    }
-    
-    MGlobal::executeCommandOnIdle("AlembicDeleteUI");
-
-    return status;
-}

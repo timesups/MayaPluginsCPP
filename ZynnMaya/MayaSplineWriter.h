@@ -1,10 +1,8 @@
 #pragma once
 
-
 #include "Foundation.h"
 #include "MayaTransformWriter.h"
 #include <Alembic/AbcGeom/OCurves.h>
-#include "MayaNurbsCurveWriter.h"
 
 
 class MayaSplineWriter

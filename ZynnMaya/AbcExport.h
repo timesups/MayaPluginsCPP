@@ -11,5 +11,7 @@ class AbcExport : public MPxCommand
 
     static MSyntax  createSyntax();
     static void* creator();
+
+    static std::string AbcExportNewCommandName;
 };
 

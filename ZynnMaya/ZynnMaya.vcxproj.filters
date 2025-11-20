@@ -16,57 +16,66 @@
     <Filter Include="头文件\tools">
       <UniqueIdentifier>{24c4d53c-b28d-494a-b209-2765fdf62f75}</UniqueIdentifier>
     </Filter>
+    <Filter Include="头文件\abcExport">
+      <UniqueIdentifier>{a8dfca68-c0b7-4106-883b-bb2167cc24e7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\abcExport">
+      <UniqueIdentifier>{43e4573f-fa6c-4f6b-bed4-c054f8fa5080}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AbcExport.cpp">
-      <Filter>源文件</Filter>
+      <Filter>源文件\abcExport</Filter>
     </ClCompile>
     <ClCompile Include="AbcWriteJob.cpp">
-      <Filter>源文件</Filter>
+      <Filter>源文件\abcExport</Filter>
     </ClCompile>
     <ClCompile Include="MayaMeshWriter.cpp">
-      <Filter>源文件</Filter>
+      <Filter>源文件\abcExport</Filter>
     </ClCompile>
     <ClCompile Include="MayaNurbsCurveWriter.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="MayaTransformWriter.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="MayaUtility.cpp">
-      <Filter>源文件</Filter>
+      <Filter>源文件\abcExport</Filter>
     </ClCompile>
     <ClCompile Include="MayaSplineWriter.cpp">
+      <Filter>源文件\abcExport</Filter>
+    </ClCompile>
+    <ClCompile Include="MayaTransformWriter.cpp">
+      <Filter>源文件\abcExport</Filter>
+    </ClCompile>
+    <ClCompile Include="MayaUtility.cpp">
+      <Filter>源文件\abcExport</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="AbcExport.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="AbcWriteJob.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Foundation.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="MayaMeshWriter.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="MayaNurbsCurveWriter.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="MayaTransformWriter.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="MayaUtility.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="MayaSplineWriter.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="json.hpp">
       <Filter>头文件\tools</Filter>
+    </ClInclude>
+    <ClInclude Include="AbcExport.h">
+      <Filter>头文件\abcExport</Filter>
+    </ClInclude>
+    <ClInclude Include="AbcWriteJob.h">
+      <Filter>头文件\abcExport</Filter>
+    </ClInclude>
+    <ClInclude Include="Foundation.h">
+      <Filter>头文件\abcExport</Filter>
+    </ClInclude>
+    <ClInclude Include="MayaMeshWriter.h">
+      <Filter>头文件\abcExport</Filter>
+    </ClInclude>
+    <ClInclude Include="MayaNurbsCurveWriter.h">
+      <Filter>头文件\abcExport</Filter>
+    </ClInclude>
+    <ClInclude Include="MayaSplineWriter.h">
+      <Filter>头文件\abcExport</Filter>
+    </ClInclude>
+    <ClInclude Include="MayaTransformWriter.h">
+      <Filter>头文件\abcExport</Filter>
+    </ClInclude>
+    <ClInclude Include="MayaUtility.h">
+      <Filter>头文件\abcExport</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
