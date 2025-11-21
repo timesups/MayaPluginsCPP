@@ -10,8 +10,7 @@ class MayaSplineWriter
 public:
 
     MayaSplineWriter(MDagPath& iDag, Alembic::Abc::OObject& iParent,
-        Alembic::Util::uint32_t iTimeIndex,
-        const JobArgs& iArgs);
+        Alembic::Util::uint32_t iTimeIndex);
     void write();
     bool isAnimated() const;
     unsigned int getNumCVs();

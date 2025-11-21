@@ -133,46 +133,15 @@ AbcWriteJob::AbcWriteJob(const char * iFileName,
     Alembic::AbcCoreAbstract::TimeSamplingPtr iTransTime,
     std::set<double> & iShapeFrames,
     Alembic::AbcCoreAbstract::TimeSamplingPtr iShapeTime,
-    const JobArgs & iArgs)
+    const util::ShapeSet &inDag)
 {
     MStatus status;
     mFileName = iFileName;
     mAsOgawa = iAsOgawa;
     mBoxIndex = 0;
-    mArgs = iArgs;
     mShapeSamples = 1;
     mTransSamples = 1;
-
-    if (mArgs.useSelectionList)
-    {
-
-        bool emptyDagPaths = mArgs.dagPaths.empty();
-
-        // get the active selection
-        MSelectionList activeList;
-        MGlobal::getActiveSelectionList(activeList);
-        mSList = activeList;
-        unsigned int selectionSize = activeList.length();
-        for (unsigned int index = 0; index < selectionSize; index ++)
-        {
-            MDagPath dagPath;
-            status = activeList.getDagPath(index, dagPath);
-            if (status == MS::kSuccess)
-            {
-                unsigned int length = dagPath.length();
-                while (--length)
-                {
-                    dagPath.pop();
-                    mSList.add(dagPath, MObject::kNullObj, true);
-                }
-
-                if (emptyDagPaths)
-                {
-                    mArgs.dagPaths.insert(dagPath);
-                }
-            }
-        }
-    }
+    dagPaths = inDag;
 
     mTransFrames = iTransFrames;
     mShapeFrames = iShapeFrames;
@@ -220,11 +189,6 @@ MBoundingBox AbcWriteJob::getBoundingBox(double iFrame, const MMatrix & eMInvMat
 
             // MGlobal::isSelected(ob) doesn't work, because DG node and DAG node is
             // not the same even if they refer to the same MObject
-            if (mArgs.useSelectionList && !mSList.hasItem(path))
-            {
-                dagIter.prune();
-                continue;
-            }
 
             MFnDagNode dagNode(path, &status);
             if (status == MS::kSuccess)
@@ -332,10 +296,6 @@ void AbcWriteJob::setup(double iFrame, MayaTransformWriterPtr iParent, GetMember
 {
     MStatus status;
 
-    // short-circuit if selection flag is on but this node isn't actively
-    // selected
-    if (mArgs.useSelectionList && !mSList.hasItem(mCurDag))
-        return;
 
     MObject ob = mCurDag.node();
 
@@ -345,11 +305,6 @@ void AbcWriteJob::setup(double iFrame, MayaTransformWriterPtr iParent, GetMember
         return;
     }
 
-    // skip nodes that aren't renderable (and their children)
-    if (mArgs.excludeInvisible && !util::isRenderable(ob))
-    {
-        return;
-    }
 
     // look for riCurves flag for flattening all curve objects to a curve group
     MFnDependencyNode fnDepNode(ob, &status);
@@ -386,12 +341,12 @@ void AbcWriteJob::setup(double iFrame, MayaTransformWriterPtr iParent, GetMember
         {
             Alembic::Abc::OObject obj = mRoot.getTop();
             trans = MayaTransformWriterPtr(new MayaTransformWriter(
-                obj, mCurDag, mTransTimeIndex, mArgs));
+                obj, mCurDag, mTransTimeIndex));
         }
         else
         {
             trans = MayaTransformWriterPtr(new MayaTransformWriter(
-                *iParent, mCurDag, mTransTimeIndex, mArgs));
+                *iParent, mCurDag, mTransTimeIndex));
         }
 
         if (trans->isAnimated() && mTransTimeIndex != 0)
@@ -419,10 +374,6 @@ void AbcWriteJob::setup(double iFrame, MayaTransformWriterPtr iParent, GetMember
     //load as mesh
     else if (ob.hasFn(MFn::kMesh))
     {
-       if( !mArgs.writeMeshes)
-       {
-           return;
-       }
 
         MFnMesh fnMesh(ob, &status);
         if (status != MS::kSuccess)
@@ -438,7 +389,7 @@ void AbcWriteJob::setup(double iFrame, MayaTransformWriterPtr iParent, GetMember
         {
             Alembic::Abc::OObject obj = iParent->getObject();
             MayaMeshWriterPtr mesh(new MayaMeshWriter(mCurDag, obj,
-                mShapeTimeIndex, mArgs, gmMap));
+                mShapeTimeIndex,gmMap));
 
             if (mesh->isAnimated() && mShapeTimeIndex != 0)
             {
@@ -497,7 +448,7 @@ void AbcWriteJob::setup(double iFrame, MayaTransformWriterPtr iParent, GetMember
         {
             Alembic::Abc::OObject obj = iParent->getObject();
             MayaSplineWriterPtr spline(new MayaSplineWriter(
-                mCurDag, obj, mShapeTimeIndex,mArgs));
+                mCurDag, obj, mShapeTimeIndex));
 
             mSplineListForAttr.push_back(spline);
 
@@ -554,7 +505,7 @@ bool AbcWriteJob::eval(double iFrame)
     {
         // check if the shortnames of any two nodes are the same
         // if so, exit here
-        hasDuplicates(mArgs.dagPaths, mArgs.stripNamespace);
+        hasDuplicates(dagPaths, 0xffffffff);
 
         std::string appWriter = "Maya ";
         appWriter += MGlobal::mayaVersion().asChar();
@@ -571,7 +522,6 @@ bool AbcWriteJob::eval(double iFrame)
             userInfo = "";
         }
 
-#ifdef ALEMBIC_WITH_HDF5
         if (mAsOgawa)
         {
             mRoot = CreateArchiveWithInfo(Alembic::AbcCoreOgawa::WriteArchive(),
@@ -584,13 +534,6 @@ bool AbcWriteJob::eval(double iFrame)
                 mFileName, appWriter, userInfo,
                 Alembic::Abc::ErrorHandler::kThrowPolicy);
         }
-#else
-        // just write it out as Ogawa
-        mRoot = CreateArchiveWithInfo(Alembic::AbcCoreOgawa::WriteArchive(),
-            mFileName, appWriter, userInfo,
-            Alembic::Abc::ErrorHandler::kThrowPolicy);
-#endif
-
         mShapeTimeIndex = mRoot.addTimeSampling(*mShapeTime);
         mTransTimeIndex = mRoot.addTimeSampling(*mTransTime);
 
@@ -603,11 +546,10 @@ bool AbcWriteJob::eval(double iFrame)
             throw std::runtime_error(theError);
         }
 
-        mArgs.setFirstAnimShape = (iFrame == *mShapeFrames.begin());
 
-        util::ShapeSet::const_iterator end = mArgs.dagPaths.end();
+        util::ShapeSet::const_iterator end = dagPaths.end();
         GetMembersMap gmMap;
-        for (util::ShapeSet::const_iterator it = mArgs.dagPaths.begin();
+        for (util::ShapeSet::const_iterator it = dagPaths.begin();
             it != end; ++it)
         {
             mCurDag = *it;
@@ -718,22 +660,14 @@ void AbcWriteJob::perFrameCallback(double iFrame)
 {
     MBoundingBox bbox;
 
-    util::ShapeSet::iterator it = mArgs.dagPaths.begin();
-    const util::ShapeSet::iterator end = mArgs.dagPaths.end();
+    util::ShapeSet::iterator it = dagPaths.begin();
+    const util::ShapeSet::iterator end = dagPaths.end();
     for (; it != end; it ++)
     {
         mCurDag = *it;
 
         MMatrix eMInvMat;
-        if (mArgs.worldSpace)
-        {
-            eMInvMat.setToIdentity();
-        }
-        else
-        {
-            eMInvMat = mCurDag.exclusiveMatrixInverse();
-        }
-
+        eMInvMat = mCurDag.exclusiveMatrixInverse();
         bbox.expand(getBoundingBox(iFrame, eMInvMat));
     }
 
@@ -742,8 +676,8 @@ void AbcWriteJob::perFrameCallback(double iFrame)
     Alembic::Abc::Box3d b(min, max);
     mBoxProp.set(b);
 
-    processCallback(mArgs.melPerFrameCallback, true, iFrame, bbox);
-    processCallback(mArgs.pythonPerFrameCallback, false, iFrame, bbox);
+    //processCallback(mArgs.melPerFrameCallback, true, iFrame, bbox);
+    //processCallback(mArgs.pythonPerFrameCallback, false, iFrame, bbox);
 }
 
 
@@ -820,35 +754,35 @@ void AbcWriteJob::postCallback(double iFrame)
         samp.set(mShapeSamples);
     }
 
-    MBoundingBox bbox;
+    //MBoundingBox bbox;
 
-    if (mArgs.melPostCallback.find("#BOUNDS#") != std::string::npos ||
-        mArgs.pythonPostCallback.find("#BOUNDS#") != std::string::npos ||
-        mArgs.melPostCallback.find("#BOUNDSARRAY#") != std::string::npos ||
-        mArgs.pythonPostCallback.find("#BOUNDSARRAY#") != std::string::npos)
-    {
-        util::ShapeSet::const_iterator it = mArgs.dagPaths.begin();
-        const util::ShapeSet::const_iterator end = mArgs.dagPaths.end();
-        for (; it != end; it ++)
-        {
-            mCurDag = *it;
+    //if (mArgs.melPostCallback.find("#BOUNDS#") != std::string::npos ||
+    //    mArgs.pythonPostCallback.find("#BOUNDS#") != std::string::npos ||
+    //    mArgs.melPostCallback.find("#BOUNDSARRAY#") != std::string::npos ||
+    //    mArgs.pythonPostCallback.find("#BOUNDSARRAY#") != std::string::npos)
+    //{
+    //    util::ShapeSet::const_iterator it = mArgs.dagPaths.begin();
+    //    const util::ShapeSet::const_iterator end = mArgs.dagPaths.end();
+    //    for (; it != end; it ++)
+    //    {
+    //        mCurDag = *it;
 
-            MMatrix eMInvMat;
-            if (mArgs.worldSpace)
-            {
-                eMInvMat.setToIdentity();
-            }
-            else
-            {
-                eMInvMat = mCurDag.exclusiveMatrixInverse();
-            }
+    //        MMatrix eMInvMat;
+    //        if (mArgs.worldSpace)
+    //        {
+    //            eMInvMat.setToIdentity();
+    //        }
+    //        else
+    //        {
+    //            eMInvMat = mCurDag.exclusiveMatrixInverse();
+    //        }
 
-            bbox.expand(getBoundingBox(iFrame, eMInvMat));
-        }
-    }
+    //        bbox.expand(getBoundingBox(iFrame, eMInvMat));
+    //    }
+    //}
 
-    processCallback(mArgs.melPostCallback, true, iFrame, bbox);
-    processCallback(mArgs.pythonPostCallback, false, iFrame, bbox);
+    //processCallback(mArgs.melPostCallback, true, iFrame, bbox);
+    //processCallback(mArgs.pythonPostCallback, false, iFrame, bbox);
 }
 
 

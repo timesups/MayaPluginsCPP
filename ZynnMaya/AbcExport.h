@@ -9,7 +9,6 @@ class AbcExport : public MPxCommand
     ~AbcExport() override;
     MStatus doIt(const MArgList& args) override;
 
-    static MSyntax  createSyntax();
     static void* creator();
 
     static std::string AbcExportNewCommandName;

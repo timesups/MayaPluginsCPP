@@ -21,7 +21,7 @@ class MayaMeshWriter
   public:
 
     MayaMeshWriter(MDagPath & iDag, Alembic::Abc::OObject & iParent,
-        Alembic::Util::uint32_t iTimeIndex, const JobArgs & iArgs,
+        Alembic::Util::uint32_t iTimeIndex,
         GetMembersMap& gmMap);
     void write();
     bool isAnimated() const;

@@ -462,9 +462,9 @@ bool setSampledRotation(Alembic::AbcGeom::XformSample& sample,
 }
 
 MayaTransformWriter::MayaTransformWriter(Alembic::AbcGeom::OObject & iParent,
-    MDagPath & iDag, Alembic::Util::uint32_t iTimeIndex, const JobArgs & iArgs)
+    MDagPath & iDag, Alembic::Util::uint32_t iTimeIndex)
 {
-    mFilterEulerRotations = iArgs.filterEulerRotations;
+    mFilterEulerRotations = false;
     mJointOrientOpIndex[0] = mJointOrientOpIndex[1] = mJointOrientOpIndex[2] =
     mRotateOpIndex[0]      = mRotateOpIndex[1]      = mRotateOpIndex[2]      =
     mRotateAxisOpIndex[0]  = mRotateAxisOpIndex[1]  = mRotateAxisOpIndex[2]  = ~size_t(0);
@@ -474,99 +474,24 @@ MayaTransformWriter::MayaTransformWriter(Alembic::AbcGeom::OObject & iParent,
         MFnIkJoint joint(iDag);
         MString jointName = joint.name();
 
-        jointName = util::stripNamespaces(jointName, iArgs.stripNamespace);
+        jointName = util::stripNamespaces(jointName, 0xffffffff);
 
         Alembic::AbcGeom::OXform obj(iParent, jointName.asChar(),
             iTimeIndex);
         mSchema = obj.getSchema();
 
-
-        if (!iArgs.writeTransforms)
-        {
-            return;
-        }
-
-        if (!iArgs.worldSpace)
-        {
-            pushTransformStack(joint, iTimeIndex == 0);
-
-            // need to look at inheritsTransform
-            MFnDagNode dagNode(iDag);
-            MPlug inheritPlug = dagNode.findPlug("inheritsTransform", true);
-            if (!inheritPlug.isNull())
-            {
-                if (util::getSampledType(inheritPlug) != 0)
-                {
-                    mInheritsPlug = inheritPlug;
-                }
-                mSample.setInheritsXforms(inheritPlug.asBool());
-            }
-
-            // no animated inherits plug and no animated samples?
-            // then use the default time sampling
-            if (mAnimChanList.empty() && mInheritsPlug.isNull())
-            {
-                mSchema.setTimeSampling(0);
-            }
-
-            // everything is default, don't write anything
-            if (mSample.getNumOps() == 0 && mSample.getInheritsXforms())
-            {
-                return;
-            }
-
-            mSchema.set(mSample);
-            return;
-        }
     }
     else
     {
         MFnTransform trans(iDag);
         MString transName = trans.name();
 
-        transName = util::stripNamespaces(transName, iArgs.stripNamespace);
+        transName = util::stripNamespaces(transName, 0xffffffff);
 
         Alembic::AbcGeom::OXform obj(iParent, transName.asChar(),
             iTimeIndex);
         mSchema = obj.getSchema();
 
-        if (!iArgs.writeTransforms)
-        {
-            return;
-        }
-
-        if (!iArgs.worldSpace)
-        {
-            pushTransformStack(trans, iTimeIndex == 0);
-
-            // need to look at inheritsTransform
-            MFnDagNode dagNode(iDag);
-            MPlug inheritPlug = dagNode.findPlug("inheritsTransform", true);
-            if (!inheritPlug.isNull())
-            {
-                if (util::getSampledType(inheritPlug) != 0)
-                {
-                    mInheritsPlug = inheritPlug;
-                }
-                mSample.setInheritsXforms(inheritPlug.asBool());
-            }
-
-            // no animated inherits plug and no animated samples?
-            // then use the default time sampling
-            if (mAnimChanList.empty() && mInheritsPlug.isNull())
-            {
-                mSchema.setTimeSampling(0);
-            }
-
-            // everything is default, don't write anything
-            if (mSample.getNumOps() == 0 && mSample.getInheritsXforms())
-            {
-                return;
-            }
-
-            mSchema.set(mSample);
-            return;
-        }
     }
 
     // if we didn't bail early then we need to add all the transform
@@ -659,9 +584,9 @@ MayaTransformWriter::MayaTransformWriter(Alembic::AbcGeom::OObject & iParent,
 }
 
 MayaTransformWriter::MayaTransformWriter(MayaTransformWriter & iParent,
-    MDagPath & iDag, Alembic::Util::uint32_t iTimeIndex, const JobArgs & iArgs)
+    MDagPath & iDag, Alembic::Util::uint32_t iTimeIndex)
 {
-    mFilterEulerRotations = iArgs.filterEulerRotations;
+    mFilterEulerRotations = false;
     mJointOrientOpIndex[0] = mJointOrientOpIndex[1] = mJointOrientOpIndex[2] =
     mRotateOpIndex[0]      = mRotateOpIndex[1]      = mRotateOpIndex[2]      =
     mRotateAxisOpIndex[0]  = mRotateAxisOpIndex[1]  = mRotateAxisOpIndex[2]  = ~size_t(0);
@@ -671,16 +596,11 @@ MayaTransformWriter::MayaTransformWriter(MayaTransformWriter & iParent,
         MFnIkJoint joint(iDag);
         MString jointName = joint.name();
 
-        jointName = util::stripNamespaces(jointName, iArgs.stripNamespace);
+        jointName = util::stripNamespaces(jointName, 0xffffffff);
 
         Alembic::AbcGeom::OXform obj(iParent.getObject(), jointName.asChar(),
             iTimeIndex);
         mSchema = obj.getSchema();
-
-        if (!iArgs.writeTransforms)
-        {
-            return;
-        }
 
         pushTransformStack(joint, iTimeIndex == 0);
     }
@@ -689,15 +609,11 @@ MayaTransformWriter::MayaTransformWriter(MayaTransformWriter & iParent,
         MFnTransform trans(iDag);
         MString transName = trans.name();
 
-        transName = util::stripNamespaces(transName, iArgs.stripNamespace);
+        transName = util::stripNamespaces(transName, 0xffffffff);
 
         Alembic::AbcGeom::OXform obj(iParent.getObject(), transName.asChar(),
             iTimeIndex);
         mSchema = obj.getSchema();
-        if (!iArgs.writeTransforms)
-        {
-            return;
-        }
 
         pushTransformStack(trans, iTimeIndex == 0);
     }

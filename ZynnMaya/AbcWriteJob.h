@@ -109,8 +109,7 @@ class AbcWriteJob
         std::set<double> & iTransFrames,
         Alembic::AbcCoreAbstract::TimeSamplingPtr iTransTime,
         std::set<double> & iShapeFrames,
-        Alembic::AbcCoreAbstract::TimeSamplingPtr iShapeTime,
-        const JobArgs & iArgs);
+        Alembic::AbcCoreAbstract::TimeSamplingPtr iShapeTime, const util::ShapeSet& inDag);
 
     ~AbcWriteJob();
 
@@ -147,6 +146,7 @@ class AbcWriteJob
 
     // helper dag path for recursive calculations
     MDagPath mCurDag;
+    util::ShapeSet dagPaths;
 
     // the root world node of the scene
     Alembic::Abc::OArchive mRoot;
@@ -177,8 +177,6 @@ class AbcWriteJob
     unsigned int mBoxIndex;
 
     AbcWriteJobStatistics mStats;
-    JobArgs mArgs;
-
 };
 
 typedef Alembic::Util::shared_ptr < AbcWriteJob > AbcWriteJobPtr;

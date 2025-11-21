@@ -282,13 +282,12 @@ void MayaMeshWriter::getUVs(std::vector<float> & uvs,
 }
 
 MayaMeshWriter::MayaMeshWriter(MDagPath & iDag,
-    Alembic::Abc::OObject & iParent, Alembic::Util::uint32_t iTimeIndex,
-    const JobArgs & iArgs, GetMembersMap& gmMap)
-  : mNoNormals(iArgs.noNormals),
-    mWriteGeometry(iArgs.writeGeometry),
-    mWriteUVs(iArgs.writeUVs),
-    mWriteColorSets(iArgs.writeColorSets),
-    mWriteUVSets(iArgs.writeUVSets),
+    Alembic::Abc::OObject & iParent, Alembic::Util::uint32_t iTimeIndex,GetMembersMap& gmMap)
+  : mNoNormals(false),
+    mWriteGeometry(true),
+    mWriteUVs(true),
+    mWriteColorSets(true),
+    mWriteUVSets(true),
     mIsGeometryAnimated(false),
     mDagPath(iDag)
 {
@@ -316,7 +315,7 @@ MayaMeshWriter::MayaMeshWriter(MDagPath & iDag,
     std::string uvSetName;
 
     MString name = lMesh.name();
-    name = util::stripNamespaces(name, iArgs.stripNamespace);
+    name = util::stripNamespaces(name, 0xffffffff);
 
     // check to see if this poly has been tagged as a SubD
     MPlug plug = lMesh.findPlug("SubDivisionMesh", true);
@@ -325,21 +324,6 @@ MayaMeshWriter::MayaMeshWriter(MDagPath & iDag,
     // let's check whether the mesh has crease edge, crease vertex or holes
     // then the mesh will be treated as SubD
     bool hasToWriteSubd = false;
-    if( plug.isNull() && iArgs.autoSubd )
-    {
-        MUintArray edgeIds, vertexIds;
-        MDoubleArray edgeCreaseData, vertexCreaseData;
-        lMesh.getCreaseEdges(edgeIds, edgeCreaseData);
-        lMesh.getCreaseVertices(vertexIds, vertexCreaseData);
-        hasToWriteSubd = ( (edgeIds.length() > 0) || (vertexIds.length() > 0) );
-#if MAYA_API_VERSION >= 201100
-        if (!hasToWriteSubd)
-        {
-            MUintArray invisibleFaceIds = lMesh.getInvisibleFaces();
-            hasToWriteSubd = ( hasToWriteSubd || (invisibleFaceIds.length() > 0) );
-        }
-#endif
-    }
 
     Alembic::Abc::SparseFlag sf = Alembic::Abc::kFull;
     if ( !mWriteGeometry )
@@ -375,7 +359,7 @@ MayaMeshWriter::MayaMeshWriter(MDagPath & iDag,
             }
         }
 
-        if (!mIsGeometryAnimated || iArgs.setFirstAnimShape)
+        if (!mIsGeometryAnimated)
         {
             writeSubD(uvSamp);
         }
@@ -408,7 +392,7 @@ MayaMeshWriter::MayaMeshWriter(MDagPath & iDag,
             }
         }
 
-        if (!mIsGeometryAnimated || iArgs.setFirstAnimShape)
+        if (!mIsGeometryAnimated )
         {
             writePoly(uvSamp);
         }
@@ -466,7 +450,7 @@ MayaMeshWriter::MayaMeshWriter(MDagPath & iDag,
                 }
             }
 
-            if (!mIsGeometryAnimated || iArgs.setFirstAnimShape)
+            if (!mIsGeometryAnimated)
             {
                 writeColor();
             }
@@ -514,16 +498,13 @@ MayaMeshWriter::MayaMeshWriter(MDagPath & iDag,
                 }
             }
 
-            if (!mIsGeometryAnimated || iArgs.setFirstAnimShape)
+            if (!mIsGeometryAnimated)
             {
                 writeUVSets();
             }
         }
     }
 
-    // write out facesets
-    if(!iArgs.writeFaceSets)
-        return;
 
     // get the connected shading engines
     MObjectArray connSGObjs (getOutConnectedSG(mDagPath));
@@ -580,7 +561,7 @@ MayaMeshWriter::MayaMeshWriter(MDagPath & iDag,
 
 
         connSgObjName = util::stripNamespaces(connSgObjName,
-                                              iArgs.stripNamespace);
+            0xffffffff);
 
         Alembic::AbcGeom::OFaceSet faceSet;
         std::string faceSetName(connSgObjName.asChar());

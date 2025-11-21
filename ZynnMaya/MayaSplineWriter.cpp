@@ -18,7 +18,7 @@ T GetAttribute(MObject node,MString attrributeName,T defaultValue)
 }
 
 
-MayaSplineWriter::MayaSplineWriter(MDagPath& iDag, Alembic::Abc::OObject& iParent, Alembic::Util::uint32_t iTimeIndex, const JobArgs& iArgs):
+MayaSplineWriter::MayaSplineWriter(MDagPath& iDag, Alembic::Abc::OObject& iParent, Alembic::Util::uint32_t iTimeIndex):
     mRootDagPath(iDag)
     {
     MStatus stat;
@@ -41,7 +41,7 @@ MayaSplineWriter::MayaSplineWriter(MDagPath& iDag, Alembic::Abc::OObject& iParen
         iTimeIndex = 0;
     }
 
-    name = util::stripNamespaces(name, iArgs.stripNamespace);
+    name = util::stripNamespaces(name, 0xffffffff);
 
     Alembic::AbcGeom::OCurves obj(iParent, name.asChar(), iTimeIndex);
     mSchema = obj.getSchema();
@@ -49,11 +49,10 @@ MayaSplineWriter::MayaSplineWriter(MDagPath& iDag, Alembic::Abc::OObject& iParen
     groupName = GetAttribute<MString>(mRootDagPath.transform(), attrGroupName, "").asChar();
 
 
-    if (!mIsAnimated || iArgs.setFirstAnimShape) 
+    if (!mIsAnimated) 
     {
         write();
     }
-    
 
 }
 
