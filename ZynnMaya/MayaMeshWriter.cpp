@@ -598,9 +598,19 @@ MayaMeshWriter::MayaMeshWriter(MDagPath & iDag,
         samp.setFaces(Alembic::Abc::Int32ArraySample(faceIndices));
 
         Alembic::AbcGeom::OFaceSetSchema faceSetSchema = faceSet.getSchema();
-
         faceSetSchema.set(samp);
-        faceSetSchema.setFaceExclusivity(Alembic::AbcGeom::kFaceSetExclusive);
+        
+
+        try
+        {
+            faceSetSchema.setFaceExclusivity(Alembic::AbcGeom::kFaceSetExclusive);
+        }
+        catch (const std::exception& e)
+        {
+
+            MGlobal::displayWarning(e.what());
+        }
+        
 
         MFnDependencyNode iNode(connSGObj);
     }

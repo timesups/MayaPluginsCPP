@@ -33,19 +33,94 @@ void* AbcExport::creator()
     return new AbcExport();
 }
 
+enum ArgDataType
+{
+    STRING_ARRAY,
+    DOUBLE,
+    STRING
+};
+
+
+
 MStatus AbcExport::doIt(const MArgList& args)
 {
+
+
     try
     {
+        //从参数获取导出信息
         MStatus status;
-        MStringArray strDagpaths;
-        //strDagpaths.append("description_splineDescription");
-        strDagpaths.append("polySurface1");
-        strDagpaths.append("TouPi");
+
+        unsigned int index = 0;
+        MStringArray strDagpaths = args.asStringArray(index, &status);
+        if (!status)
+        {
+            MGlobal::displayError("Failed to get dags");
+            return status;
+        }
+
+        index = 1;
+        double startTime = args.asDouble(index, &status);
+        if (!status)
+        {
+            MGlobal::displayError("Failed to get start time");
+            return status;
+        }
+
+        index = 2;
+        double endTime = args.asDouble(index, &status);
+        if (!status)
+        {
+            MGlobal::displayError("Failed to get end time");
+            return status;
+        }
+
+
+        index = 3;
+
+        double step = args.asDouble(index, &status);
+        if (!status)
+        {
+            MGlobal::displayError("Failed to get step");
+            return status;
+        }
+
+        index = 4;
+
+        MString fName = args.asString(index, &status);
+        if (!status)
+        {
+            MGlobal::displayError("Failed to get file name");
+            return status;
+        }
+
+        std::string startExportMessage = "Export ";
+        for (int i = 0; i < strDagpaths.length(); i++)
+        {
+            startExportMessage = startExportMessage + strDagpaths[i].asChar() + ",";
+        }
+        startExportMessage = 
+            startExportMessage + "\n"
+            + "  Start:" + std::to_string(startTime) + "\n"
+            + "  End:" + std::to_string(endTime) + "\n"
+            + "  FilePath:" + fName.asChar();
+        MGlobal::displayInfo(startExportMessage.c_str());
+        //~从参数获取导出信息完成
+
+
+
+        std::vector< FrameRangeArgs > frameRanges(1);
+        frameRanges.back().startTime = startTime;
+        frameRanges.back().endTime = endTime;
+        frameRanges.back().strideTime = step;
+
+        std::string fileName = fName.asChar();
+
+
+
         util::ShapeSet dagPaths;
 
-
-        for(int i=0;i<strDagpaths.length();i++)
+        for (int i = 0; i < strDagpaths.length(); i++)
         {
             MSelectionList list;
             status = MGlobal::getSelectionListByName(strDagpaths[i], list);
@@ -61,26 +136,13 @@ MStatus AbcExport::doIt(const MArgList& args)
 
         MTime oldCurTime = MAnimControl::currentTime();
 
-
         std::set<double> allFrameRange;
 
 
-        unsigned int jobIndex = 1;
- 
-
-
-        // the frame range within this job
-        std::vector< FrameRangeArgs > frameRanges(1);
-        frameRanges.back().startTime = oldCurTime.value();
-        frameRanges.back().endTime = oldCurTime.value();
-        frameRanges.back().strideTime = 1.0;
-
         bool sampleGeo = true; // whether or not to subsample geometry
-        std::string fileName = "d:/Desktop/test.abc";
 
         bool hasRange = true;
-        frameRanges.back().startTime = 0.0;
-        frameRanges.back().endTime = 30.0;
+
 
         // make sure start frame is smaller or equal to endTime
         if (frameRanges.back().startTime > frameRanges.back().endTime)
@@ -89,84 +151,14 @@ MStatus AbcExport::doIt(const MArgList& args)
                 frameRanges.back().endTime);
         }
 
-        if (fileName == "")
         {
-            MString error = "-file not specified.";
-            MGlobal::displayError(error);
-            return MS::kFailure;
-        }
-
-        {
-            MString fileRule, expandName;
-            MString alembicFileRule = "alembicCache";
-            MString alembicFilePath = "cache/alembic";
-
-            MString queryFileRuleCmd;
-            queryFileRuleCmd.format("workspace -q -fre \"^1s\"",
-                alembicFileRule);
-
-            MString queryFolderCmd;
-            queryFolderCmd.format("workspace -en `workspace -q -fre \"^1s\"`",
-                alembicFileRule);
-
-            // query the file rule for alembic cache
-            MGlobal::executeCommand(queryFileRuleCmd, fileRule);
-            if (fileRule.length() > 0)
-            {
-                // we have alembic file rule, query the folder
-                MGlobal::executeCommand(queryFolderCmd, expandName);
-            }
-            else
-            {
-                // alembic file rule does not exist, create it
-                MString addFileRuleCmd;
-                addFileRuleCmd.format("workspace -fr \"^1s\" \"^2s\"",
-                    alembicFileRule, alembicFilePath);
-                MGlobal::executeCommand(addFileRuleCmd);
-
-                // save the workspace. maya may discard file rules on exit
-                MGlobal::executeCommand("workspace -s");
-
-                // query the folder
-                MGlobal::executeCommand(queryFolderCmd, expandName);
-            }
-
-            // resolve the expanded file rule
-            if (expandName.length() == 0)
-            {
-                expandName = alembicFilePath;
-            }
-
-            // get the path to the alembic file rule
-            MFileObject directory;
-            directory.setRawFullName(expandName);
-            MString directoryName = directory.resolvedFullName();
-
-            // make sure the cache folder exists
-            if (!directory.exists())
-            {
-                // create the cache folder
-                MString createFolderCmd;
-                createFolderCmd.format("sysFile -md \"^1s\"", directoryName);
-                MGlobal::executeCommand(createFolderCmd);
-            }
-
-            // resolve the relative path
+            // 1. 设置 MFileObject 并将文件名解析为绝对路径
             MFileObject absoluteFile;
             absoluteFile.setRawFullName(fileName.c_str());
-            if (!MFileObject::isAbsolutePath(fileName.c_str())) {
-                // this is a relative path
-                MString absoluteFileName = directoryName + "/" +
-                    fileName.c_str();
-                absoluteFile.setRawFullName(absoluteFileName);
-                fileName = absoluteFile.resolvedFullName().asChar();
-            }
-            else
-            {
-                fileName = absoluteFile.resolvedFullName().asChar();
-            }
+            // 如果 fileName 已经被确保是绝对路径，这句主要用于解析任何环境变量或别名
+            fileName = absoluteFile.resolvedFullName().asChar();
 
-            // check the path must exist before writing
+            // 2. 检查父目录是否存在 (推荐保留，以确保文件可写)
             MFileObject absoluteFilePath;
             absoluteFilePath.setRawFullName(absoluteFile.path());
             if (!absoluteFilePath.exists()) {
@@ -176,7 +168,7 @@ MStatus AbcExport::doIt(const MArgList& args)
                 return MS::kFailure;
             }
 
-            // check the file is used by any AlembicNode in the scene
+            // 3. 检查文件是否正在被场景中的 AlembicNode 使用 (必须保留)
             MItDependencyNodes dgIter(MFn::kPluginDependNode);
             for (; !dgIter.isDone(); dgIter.next()) {
                 MFnDependencyNode alembicNode(dgIter.thisNode());
@@ -184,6 +176,7 @@ MStatus AbcExport::doIt(const MArgList& args)
                     continue;
                 }
 
+                // 检查主文件属性
                 MPlug abcFilePlug = alembicNode.findPlug("abc_File", true);
                 if (!abcFilePlug.isNull())
                 {
@@ -201,6 +194,7 @@ MStatus AbcExport::doIt(const MArgList& args)
                     }
                 }
 
+                // 检查分层文件属性
                 MPlug abcLayerFilePlug = alembicNode.findPlug("abc_layerFiles", true);
                 if (!abcLayerFilePlug.isNull())
                 {
@@ -210,7 +204,7 @@ MStatus AbcExport::doIt(const MArgList& args)
                     for (unsigned int l = 0; l < layerFilenames.length(); l++)
                     {
                         MFileObject thisAlembicFile;
-                        // FIXME MAYA-92896: remove path resolution when Maya will be able to deal with arrays of filepaths
+                        // ... path resolution logic retained ...
                         thisAlembicFile.setResolveMethod(MFileObject::MFileResolveMethod::kInputFile);
                         thisAlembicFile.setRawFullName(layerFilenames[l]);
 
@@ -228,9 +222,9 @@ MStatus AbcExport::doIt(const MArgList& args)
                         }
                     }
                 }
-
             }
 
+            // 4. 检查写入权限 (必须保留)
             std::ofstream ofs(fileName.c_str());
             if (!ofs.is_open()) {
                 MString error = MString("Can't write to file: ") + fileName.c_str();
@@ -238,7 +232,9 @@ MStatus AbcExport::doIt(const MArgList& args)
                 return MS::kFailure;
             }
             ofs.close();
-            }
+        }
+
+
 
         // if -frameRelativeSample argument is not specified for a frame range,
         // we are assuming a -frameRelativeSample 0.0
@@ -484,74 +480,71 @@ MStatus AbcExport::doIt(const MArgList& args)
         }
 
         AbcWriteJobPtr job(new AbcWriteJob(fileName.c_str(), true,
-            transSamples, transTime, geoSamples, geoTime,dagPaths));
+            transSamples, transTime, geoSamples, geoTime, dagPaths));
 
-        // make sure we add additional whole frames, if we arent skipping
-        // the inbetween ones
-        if (allFrameRange.empty())
+
+        double localMin = *(transSamples.begin());
+        std::set<double>::iterator last = transSamples.end();
+        last--;
+        double localMax = *last;
+
+        double globalMin = *(allFrameRange.begin());
+        last = allFrameRange.end();
+        last--;
+        double globalMax = *last;
+
+        // if the min of our current frame range is beyond
+        // what we know about, pad a few more frames
+        if (localMin > globalMax)
         {
-            double localMin = *(transSamples.begin());
-            std::set<double>::iterator last = transSamples.end();
-            last--;
-            double localMax = *last;
-
-            double globalMin = *(allFrameRange.begin());
-            last = allFrameRange.end();
-            last--;
-            double globalMax = *last;
-
-            // if the min of our current frame range is beyond
-            // what we know about, pad a few more frames
-            if (localMin > globalMax)
+            for (double f = globalMax; f < localMin; f++)
             {
-                for (double f = globalMax; f < localMin; f++)
-                {
-                    allFrameRange.insert(f);
-                }
+                allFrameRange.insert(f);
             }
+        }
 
-            // if the max of our current frame range is beyond
-            // what we know about, pad a few more frames
-            if (localMax < globalMin)
+        // if the max of our current frame range is beyond
+        // what we know about, pad a few more frames
+        if (localMax < globalMin)
+        {
+            for (double f = localMax; f < globalMin; f++)
             {
-                for (double f = localMax; f < globalMin; f++)
-                {
-                    allFrameRange.insert(f);
-                }
+                allFrameRange.insert(f);
             }
+        }
 
-            // right now we just copy over the translation samples since
-            // they are guaranteed to contain all the geometry samples
-            allFrameRange.insert(transSamples.begin(), transSamples.end());
+        // right now we just copy over the translation samples since
+        // they are guaranteed to contain all the geometry samples
+        allFrameRange.insert(transSamples.begin(), transSamples.end());
 
-            // copy over the pre-roll samples
-            allFrameRange.insert(preRollSamples.begin(), preRollSamples.end());
-            }
+        // copy over the pre-roll samples
+        allFrameRange.insert(preRollSamples.begin(), preRollSamples.end());
 
 
+        //遍历每一帧
         std::set<double>::iterator it = allFrameRange.begin();
         std::set<double>::iterator itEnd = allFrameRange.end();
 
         MComputation computation;
         computation.beginComputation();
 
-        //遍历每一帧
+
         for (; it != itEnd; it++)
         {
-
             MGlobal::viewFrame(*it);
             if (computation.isInterruptRequested())
                 return MS::kFailure;
 
             bool lastFrame = job->eval(*it);
         }
+
         computation.endComputation();
 
         // set the time back
         MGlobal::viewFrame(oldCurTime);
 
         return MS::kSuccess;
-        }
+    }
     catch (Alembic::Util::Exception& e)
     {
         MString theError("Alembic Exception encountered: ");
@@ -567,7 +560,7 @@ MStatus AbcExport::doIt(const MArgList& args)
         return MS::kFailure;
     }
 
-    }
+}
 
 
 // ~##########################ABC Export New###########################~

@@ -1,6 +1,7 @@
 #include "MayaSplineWriter.h"
 #include <maya/MFnPluginData.h>
 #include <maya/MPxData.h>
+
 #include "MayaTransformWriter.h"
 
 
@@ -24,15 +25,14 @@ MayaSplineWriter::MayaSplineWriter(MDagPath& iDag, Alembic::Abc::OObject& iParen
     MStatus stat;
     MFnDependencyNode fnDepNode(iDag.node(), &stat);
     MString name = fnDepNode.name();
-
-
-    //int meshUVSetIndex = GetAttribute<int>(iDag.transform(), "GroupName",0);
-    //bool bGuideAnimation = GetAttribute<bool>(iDag.transform(), "GroupName", false);
-    //bool bSplineAnimation = GetAttribute<bool>(iDag.transform(), "GroupName",false);
+    
+    GuideAnimation = GetAttribute<bool>(iDag.transform(),attrExportGuideAnim, false);
+    bool SplineAnimation = GetAttribute<bool>(iDag.transform(),attrExportSplineAnim, false);
+    
 
     MObject spline = iDag.node();
     
-    if (iTimeIndex != 0 && util::isAnimated(spline))
+    if (iTimeIndex != 0 && util::isAnimated(spline) && SplineAnimation)
     {
         mIsAnimated = true;
     }
@@ -48,6 +48,35 @@ MayaSplineWriter::MayaSplineWriter(MDagPath& iDag, Alembic::Abc::OObject& iParen
 
     groupName = GetAttribute<MString>(mRootDagPath.transform(), attrGroupName, "").asChar();
 
+
+    //获取根顶点列表
+    MFnDependencyNode splineDepNode(mRootDagPath.node());
+    std::vector<std::vector<uint64_t>> PrimitiveInfosList;
+    std::vector<std::vector<float>> PositionsList;
+    std::vector<std::vector<float>> WidthDataList;
+    util::GetSplineData(splineDepNode, PrimitiveInfosList, PositionsList, WidthDataList, false);
+
+    for (int i = 0; i < PrimitiveInfosList.size(); i++)
+    {
+        auto primitiveInfos = PrimitiveInfosList[i];
+        auto positionData = PositionsList[i];
+        for (int j = 0; j < primitiveInfos.size(); j += 2)
+        {
+            uint64_t offset = primitiveInfos[j];
+            int length = primitiveInfos[j + 1];
+            if (length < 2)
+                continue;
+            uint64_t startAddr = offset * 3;
+            for (int k = 0; k < length; k++)
+            {
+                if(k==0)
+                {
+                    rootList.emplace_back(positionData[startAddr], positionData[startAddr + 1], positionData[startAddr + 2]);
+                }
+                startAddr += 3;
+            }
+        }
+    }
 
     if (!mIsAnimated) 
     {
@@ -125,6 +154,7 @@ void MayaSplineWriter::write()
                 points.push_back(positionData[startAddr+1]);
                 points.push_back(positionData[startAddr+2]);
                 width.push_back(widthData[offset + k]);
+
                 startAddr += 3;
                 cvIndex += 1;
             }
@@ -187,6 +217,71 @@ void MayaSplineWriter::WriteGroupName()
 
 void MayaSplineWriter::WriteGroupId(int group_id)
 {
+    auto cp = mSchema.getArbGeomParams();
+    Alembic::Abc::OInt32ArrayProperty groupNameProperty = Alembic::Abc::OInt32ArrayProperty(cp, groomGroupIdAttrName);
+    std::vector<int32_t> values;
+    values.push_back(group_id);
+    groupNameProperty.set(Alembic::Abc::Int32ArraySample(values));
+}
+
+
+
+MStatus MayaSplineWriter::GetGuideDagPath(MDagPath &outDag)
+{
+
+    MStatus status;
+
+    MFnDependencyNode depNode(mRootDagPath.transform());
+    MPlug plug = depNode.findPlug(attrGuideGroupName, &status);
+    if(!status)
+    {
+        MString message = "Failed to get guide node from:" + depNode.name();
+        MGlobal::displayWarning(message.asChar());
+        return status;
+    }
+
+    MObject object = plug.source().node();
+    outDag = MDagPath::getAPathTo(object);
+
+    return status;
+}
+
+
+
+MStatus MayaSplineWriter::BakeUV()
+{
+    
+    MStatus status;
+    MFnDependencyNode depNode(mRootDagPath.transform());
+
+    MPlug plug = depNode.findPlug(attrMeshUVName, &status);
+    if (!status)
+    {
+        MString message = "Failed to get guide node from:" + depNode.name();
+        MGlobal::displayWarning(message.asChar());
+        return status;
+    }
+    MFnMesh uvMesh(plug.source().node());
+
+
+    MString cUvSet = uvMesh.currentUVSetName();
+
+    std::vector<Imath::V2f> uvs(rootList.size());
+
+    for(int i=0;i<rootList.size();i++)
+    {
+        float2 value;
+        status = uvMesh.getUVAtPoint(rootList[i],value, MSpace::kObject, &cUvSet);
+
+        uvs[i].x = value[0];
+        uvs[i].y = value[1];
+    }
+
+    auto cp = mSchema.getArbGeomParams();
+    Alembic::Abc::OV2fArrayProperty rootUVProperty = Alembic::Abc::OV2fArrayProperty(cp, groomRootUVAttrName);
+    rootUVProperty.set(Alembic::Abc::V2fArraySample(uvs));
+
+    return status;
 
 }
 

@@ -444,6 +444,7 @@ void AbcWriteJob::setup(double iFrame, MayaTransformWriterPtr iParent, GetMember
             return;
         }
 
+
         if (iParent != NULL)
         {
             Alembic::Abc::OObject obj = iParent->getObject();
@@ -451,16 +452,44 @@ void AbcWriteJob::setup(double iFrame, MayaTransformWriterPtr iParent, GetMember
                 mCurDag, obj, mShapeTimeIndex));
 
             mSplineListForAttr.push_back(spline);
+            MDagPath guideDagPath;
+
+            status = spline->GetGuideDagPath(guideDagPath);
+
+            if(status)
+            {
+                MayaNurbsCurveWriterPtr nurbsCurve = MayaNurbsCurveWriterPtr(new MayaNurbsCurveWriter(guideDagPath, mRoot.getTop(), mShapeTimeIndex, true,spline->GuideAnimation));
+
+
+                mCurveListForAttr.push_back(nurbsCurve);
+                nurbsCurve->groupName = spline->groupName;
+                nurbsCurve->isGuide = true;
+
+
+
+                if (nurbsCurve->isAnimated() && mShapeTimeIndex != 0)
+                {
+                    mCurveList.push_back(nurbsCurve);
+                    mStats.mCurveAnimNum++;
+                    mStats.mCurveAnimCurves += nurbsCurve->getNumCurves();
+                    mStats.mCurveAnimCVs += nurbsCurve->getNumCVs();
+                }
+                else
+                {
+                    mStats.mCurveStaticNum++;
+                    mStats.mCurveStaticCurves += nurbsCurve->getNumCurves();
+                    mStats.mCurveStaticCVs += nurbsCurve->getNumCVs();
+                }
+            }
+
+
+
 
             auto result = std::find(groupNames.begin(), groupNames.end(), spline->groupName);
             if(result == groupNames.end())
             {
                 groupNames.push_back(spline->groupName);
             }
-
-
-
-
 
 
             if (spline->isAnimated() && mShapeTimeIndex != 0)
@@ -476,6 +505,7 @@ void AbcWriteJob::setup(double iFrame, MayaTransformWriterPtr iParent, GetMember
                 mStats.mCurveStaticCurves++;
                 mStats.mCurveStaticCVs += spline->getNumCVs();
             }
+
         }
         else
         {
@@ -561,15 +591,54 @@ bool AbcWriteJob::eval(double iFrame)
 
 
         //write attribute
-        std::vector<MayaSplineWriterPtr>::iterator spIt, spEnd;
-        spEnd = mSplineListForAttr.end();
-        for (spIt = mSplineListForAttr.begin(); spIt != spEnd; spIt++)
+
+        for (int i = 0; i < mSplineListForAttr.size(); i++)
         {
-            (*spIt)->WriteGroupName();
-            auto result = std::find(groupNames.begin(), groupNames.end(), (*spIt)->groupName);
+            mSplineListForAttr[i]->WriteGroupName();
+            mCurveListForAttr[i]->WriteGroupName();
+
+            auto result = std::find(groupNames.begin(), groupNames.end(), mSplineListForAttr[i]->groupName);
             int index = std::distance(groupNames.begin(), result);
-            (*spIt)->WriteGroupId(index);
+
+
+            mSplineListForAttr[i]->WriteGroupId(index);
+            mCurveListForAttr[i]->WriteGroupId(index);
+
+            mSplineListForAttr[i]->BakeUV();
+            mCurveListForAttr[i]->BakeUV(mSplineListForAttr[i]->mRootDagPath);
+
+            mCurveListForAttr[i]->WriteIsGuide();
+            
+
         }
+
+
+
+
+        //std::vector<MayaSplineWriterPtr>::iterator spIt, spEnd;
+        //spEnd = mSplineListForAttr.end();
+        //for (spIt = mSplineListForAttr.begin(); spIt != spEnd; spIt++)
+        //{
+        //    (*spIt)->WriteGroupName();
+        //    auto result = std::find(groupNames.begin(), groupNames.end(), (*spIt)->groupName);
+        //    int index = std::distance(groupNames.begin(), result);
+        //    (*spIt)->WriteGroupId(index);
+        //    (*spIt)->BakeUV();
+        //}
+
+
+        //std::vector<MayaNurbsCurveWriterPtr>::iterator cIt, cEnd;
+        //cEnd = mCurveListForAttr.end();
+        //for (cIt = mCurveListForAttr.begin(); cIt != cEnd; cIt++)
+        //{
+        //    (*cIt)->WriteGroupName();
+        //    auto result = std::find(groupNames.begin(), groupNames.end(), (*cIt)->groupName);
+        //    int index = std::distance(groupNames.begin(), result);
+        //    (*cIt)->WriteGroupId(index);
+        //    (*cIt)->WriteIsGuide();
+        //    (*cIt)->BakeUV();
+        //}
+
 
 
         perFrameCallback(iFrame);

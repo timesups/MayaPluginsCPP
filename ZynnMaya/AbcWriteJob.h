@@ -135,6 +135,7 @@ class AbcWriteJob
 
     std::vector< MayaMeshWriterPtr > mMeshList;
     std::vector< MayaNurbsCurveWriterPtr > mCurveList;
+    std::vector< MayaNurbsCurveWriterPtr > mCurveListForAttr;
     std::vector< MayaSplineWriterPtr > mSplineList;
     std::vector< MayaSplineWriterPtr > mSplineListForAttr;
 

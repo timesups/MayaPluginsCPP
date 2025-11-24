@@ -9,37 +9,34 @@ class MayaNurbsCurveWriter
 {
   public:
 
-    MayaNurbsCurveWriter(MDagPath & iDag, Alembic::Abc::OObject & iParent,
-        Alembic::Util::uint32_t iTimeIndex, bool iIsCurveGrp,
-        const JobArgs & iArgs,std::string grpName,bool is_guide,int group_id);
+    MayaNurbsCurveWriter(MDagPath& iDag,
+        Alembic::Abc::OObject& iParent, Alembic::Util::uint32_t iTimeIndex,
+        bool iIsCurveGr,bool ExportAnim);
     void write();
     bool isAnimated() const;
     unsigned int getNumCVs();
     unsigned int getNumCurves();
+    MStatus BakeUV(MDagPath splineDagPath);
+    std::vector<MPoint> rootList;
 public:
-    void WriteGroupName(const std::string& group_name);
-    void WriteIsGuide(bool is_guide = true);
-    void WriteGroupId(int group_id);
+    void WriteGroupName();
+    void WriteIsGuide();
+    void WriteGroupId(int id);
 public:
     //attr in abc file
     std::string groomGroupNameAttrName = "groom_group_name";
     std::string groomGuideAttrName = "groom_guide";
     std::string groomGroupIdAttrName = "groom_group_id";
-
-    //attr in maya
-    MString attrGroupName = "GroupName";
-    MString attrGuideGroupName = "GuideGroupName";
+    std::string groomRootUVAttrName = "groom_root_uv";
     MString attrMeshUVName = "MeshUVName";
-    MString attrUVSetIndexName = "MeshUVSetIndex";
-    MString attrIsExport = "IsExport";
-    MString attrCharacterName = "CharachterName";
-    MString attrExportGuideAnim = "GuideAnimation";
-    MString attrExportSplineAnim = "SplineAnimaiton";
-
+    bool isGuide = false;
     std::string groupName;
-    bool isGuide;
-    int groupID;
-protected:
+
+private:
+
+
+
+
     bool mIsAnimated;
     MDagPath mRootDagPath;
     MDagPathArray mNurbsCurves;

@@ -63,8 +63,8 @@ namespace
 
 MayaNurbsCurveWriter::MayaNurbsCurveWriter(MDagPath & iDag,
     Alembic::Abc::OObject & iParent, Alembic::Util::uint32_t iTimeIndex,
-    bool iIsCurveGrp, const JobArgs & iArgs, std::string grpName, bool is_guide, int group_id) :
-    mIsAnimated(false), mRootDagPath(iDag), mIsCurveGrp(iIsCurveGrp),groupName(grpName),isGuide(is_guide), groupID(group_id)
+    bool iIsCurveGrp, bool ExportAnim) :
+    mIsAnimated(ExportAnim), mRootDagPath(iDag), mIsCurveGrp(iIsCurveGrp)
 {
     MStatus stat;
     MFnDependencyNode fnDepNode(iDag.node(), &stat);
@@ -72,7 +72,7 @@ MayaNurbsCurveWriter::MayaNurbsCurveWriter(MDagPath & iDag,
 
     if (mIsCurveGrp)
     {
-        collectNurbsCurves(mRootDagPath, iArgs.excludeInvisible,
+        collectNurbsCurves(mRootDagPath, false,
             mNurbsCurves, mIsAnimated);
 
         // if no curves were found bail early
@@ -83,7 +83,7 @@ MayaNurbsCurveWriter::MayaNurbsCurveWriter(MDagPath & iDag,
     {
         MObject curve = iDag.node();
 
-        if (iTimeIndex != 0 && util::isAnimated(curve))
+        if (iTimeIndex != 0 && util::isAnimated(curve) && ExportAnim)
         {
             mIsAnimated = true;
         }
@@ -93,13 +93,41 @@ MayaNurbsCurveWriter::MayaNurbsCurveWriter(MDagPath & iDag,
         }
     }
 
-    name = util::stripNamespaces(name, iArgs.stripNamespace);
+    name = util::stripNamespaces(name, 0xffffffff);
 
     Alembic::AbcGeom::OCurves obj(iParent, name.asChar(), iTimeIndex);
     mSchema = obj.getSchema();
 
 
-    if (!mIsAnimated || iArgs.setFirstAnimShape)
+    //获取根部毛发位置
+    for (unsigned int i = 0; i < mNurbsCurves.length(); i++)
+    {
+        MFnNurbsCurve curve;
+        curve.setObject(mNurbsCurves[i]);
+
+
+        Alembic::Util::int32_t numCVs = curve.numCVs(&stat);
+
+        MPointArray cvArray;
+        stat = curve.getCVs(cvArray, MSpace::kObject);
+
+
+        for (Alembic::Util::int32_t j = 0; j < numCVs; j++)
+        {
+            MPoint transformdPt;
+            transformdPt = cvArray[j];
+            if(j==0)
+            {
+                rootList.emplace_back(static_cast<float>(transformdPt.x), static_cast<float>(transformdPt.y), static_cast<float>(transformdPt.z));
+            }
+        }
+     
+    }
+
+
+
+
+    if (!mIsAnimated)
     {
         write();
     }
@@ -118,35 +146,69 @@ unsigned int MayaNurbsCurveWriter::getNumCurves()
         return 1;
 }
 
-void MayaNurbsCurveWriter::WriteGroupName(const std::string& group_name)
+void MayaNurbsCurveWriter::WriteGroupName()
 {
-    if(mSchema.valid())
+    auto cp = mSchema.getArbGeomParams();
+    Alembic::Abc::OStringArrayProperty groupNameProperty = Alembic::Abc::OStringArrayProperty(cp, groomGroupNameAttrName);
+    std::vector<std::string> values;
+    values.push_back(groupName);
+    groupNameProperty.set(Alembic::Abc::StringArraySample(values));
+}
+
+void MayaNurbsCurveWriter::WriteIsGuide()
+{
+    
+    if (isGuide)
     {
-        MGlobal::displayInfo("valid");
+        auto cp = mSchema.getArbGeomParams();
+        Alembic::Abc::OInt16ArrayProperty property = Alembic::Abc::OInt16ArrayProperty(cp, groomGuideAttrName);
+        std::vector<Alembic::Abc::int16_t> values;
+        values.push_back(1);
+        property.set(Alembic::Abc::Int16ArraySample(values));
     }
-    //Alembic::Abc::OStringArrayProperty groupName = Alembic::Abc::OStringArrayProperty(cp, groomGroupNameAttrName);
-    //std::vector<std::string> values;
-    //values.push_back(group_name);
-    //groupName.set(Alembic::Abc::StringArraySample(values));
 }
 
-void MayaNurbsCurveWriter::WriteIsGuide(bool is_guide)
+void MayaNurbsCurveWriter::WriteGroupId(int id)
 {
-    //if (is_guide)
-    //{
-    //    Alembic::Abc::OInt16ArrayProperty isGuide = Alembic::Abc::OInt16ArrayProperty(cp, groomGuideAttrName);
-    //    std::vector<Alembic::Abc::int16_t> values;
-    //    values.push_back(1);
-    //    isGuide.set(Alembic::Abc::Int16ArraySample(values));
-    //}
+    auto cp = mSchema.getArbGeomParams();
+    Alembic::Abc::OInt32ArrayProperty groupNameProperty = Alembic::Abc::OInt32ArrayProperty(cp, groomGroupIdAttrName);
+    std::vector<int32_t> values;
+    values.push_back(id);
+    groupNameProperty.set(Alembic::Abc::Int32ArraySample(values));
 }
 
-void MayaNurbsCurveWriter::WriteGroupId(int group_id)
+MStatus MayaNurbsCurveWriter::BakeUV(MDagPath splineDagPath)
 {
-    //Alembic::Abc::OInt32ArrayProperty groupID = Alembic::Abc::OInt32ArrayProperty(cp, groomGroupIdAttrName);
-    //std::vector<Alembic::Abc::int32_t> values;
-    //values.push_back(group_id);
-    //groupID.set(Alembic::Abc::Int32ArraySample(values));
+    MStatus status;
+    MFnDependencyNode depNode(splineDagPath.transform());
+
+    MPlug plug = depNode.findPlug(attrMeshUVName, &status);
+    if (!status)
+    {
+        MString message = "Failed to get guide node from:" + depNode.name();
+        MGlobal::displayWarning(message.asChar());
+        return status;
+    }
+    MFnMesh uvMesh(plug.source().node());
+
+
+    MString cUvSet = uvMesh.currentUVSetName();
+    std::vector<Imath::V2f> uvs(rootList.size());
+
+    for (int i = 0; i < rootList.size(); i++)
+    {
+        float2 value;
+        uvMesh.getUVAtPoint(rootList[i], value, MSpace::kWorld, &cUvSet);
+
+        uvs[i].x = value[0];
+        uvs[i].y = value[1];
+    }
+
+    auto cp = mSchema.getArbGeomParams();
+    Alembic::Abc::OV2fArrayProperty rootUVProperty = Alembic::Abc::OV2fArrayProperty(cp, groomRootUVAttrName);
+    rootUVProperty.set(Alembic::Abc::V2fArraySample(uvs));
+
+    return status;
 }
 
 bool MayaNurbsCurveWriter::isAnimated() const

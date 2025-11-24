@@ -18,11 +18,15 @@ public:
 public:
     void WriteGroupName();
     void WriteGroupId(int group_id);
+    MStatus MayaSplineWriter::GetGuideDagPath(MDagPath& outDag);
+    MStatus BakeUV();
+    std::vector<MPoint> rootList;
 public:
     //attr in abc file
     std::string groomGroupNameAttrName = "groom_group_name";
     std::string groomGuideAttrName = "groom_guide";
     std::string groomGroupIdAttrName = "groom_group_id";
+    std::string groomRootUVAttrName = "groom_root_uv";
 
     //attr in maya
     MString attrGroupName = "GroupName";
@@ -37,10 +41,13 @@ public:
 public:
     std::string groupName;
     int groupID;
+    MDagPath mRootDagPath;
+
+    bool GuideAnimation = false;
 private:
 
     bool mIsAnimated;
-    MDagPath mRootDagPath;
+
 
     Alembic::AbcGeom::OCurvesSchema mSchema;
 
