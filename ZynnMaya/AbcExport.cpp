@@ -5,6 +5,7 @@
 #include <maya/MFileObject.h>
 #include <maya/MItDependencyNodes.h>
 #include <fstream>
+#include <random>
 
 
 // ##########################ABC Export New###########################
@@ -44,8 +45,6 @@ enum ArgDataType
 
 MStatus AbcExport::doIt(const MArgList& args)
 {
-
-
     try
     {
         //从参数获取导出信息
@@ -93,6 +92,16 @@ MStatus AbcExport::doIt(const MArgList& args)
             MGlobal::displayError("Failed to get file name");
             return status;
         }
+
+
+        index = 5;
+
+        bool refresh = args.asBool(index, &status);
+        if (!status)
+        {
+            refresh = false;
+        }
+
 
         std::string startExportMessage = "Export ";
         for (int i = 0; i < strDagpaths.length(); i++)
@@ -531,6 +540,28 @@ MStatus AbcExport::doIt(const MArgList& args)
 
         for (; it != itEnd; it++)
         {
+            if(refresh)
+            {
+                //逐帧刷新
+                MItDependencyNodes itnodes;
+
+                for (; !itnodes.isDone(); itnodes.next())
+                {
+                    MFnDependencyNode node(itnodes.thisNode());
+                    if (node.typeName() == "xgmCurveToSpline")
+                    {
+                        std::random_device rd;
+                        std::uniform_int_distribution<int> dist(0, 9);
+
+                        MPlug plug_speed = node.findPlug("speed");
+                        plug_speed.setFloat(dist(rd));
+
+                    }
+
+                }
+            }
+
+
             MGlobal::viewFrame(*it);
             if (computation.isInterruptRequested())
                 return MS::kFailure;
