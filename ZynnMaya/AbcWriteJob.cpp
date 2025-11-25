@@ -586,12 +586,11 @@ bool AbcWriteJob::eval(double iFrame)
             setup(iFrame * util::spf(), MayaTransformWriterPtr(), gmMap);
 
         }
+
         //sort groupnames
         std::sort(groupNames.begin(), groupNames.end());
 
-
         //write attribute
-
         for (int i = 0; i < mSplineListForAttr.size(); i++)
         {
             mSplineListForAttr[i]->WriteGroupName();
@@ -611,35 +610,6 @@ bool AbcWriteJob::eval(double iFrame)
             
 
         }
-
-
-
-
-        //std::vector<MayaSplineWriterPtr>::iterator spIt, spEnd;
-        //spEnd = mSplineListForAttr.end();
-        //for (spIt = mSplineListForAttr.begin(); spIt != spEnd; spIt++)
-        //{
-        //    (*spIt)->WriteGroupName();
-        //    auto result = std::find(groupNames.begin(), groupNames.end(), (*spIt)->groupName);
-        //    int index = std::distance(groupNames.begin(), result);
-        //    (*spIt)->WriteGroupId(index);
-        //    (*spIt)->BakeUV();
-        //}
-
-
-        //std::vector<MayaNurbsCurveWriterPtr>::iterator cIt, cEnd;
-        //cEnd = mCurveListForAttr.end();
-        //for (cIt = mCurveListForAttr.begin(); cIt != cEnd; cIt++)
-        //{
-        //    (*cIt)->WriteGroupName();
-        //    auto result = std::find(groupNames.begin(), groupNames.end(), (*cIt)->groupName);
-        //    int index = std::distance(groupNames.begin(), result);
-        //    (*cIt)->WriteGroupId(index);
-        //    (*cIt)->WriteIsGuide();
-        //    (*cIt)->BakeUV();
-        //}
-
-
 
         perFrameCallback(iFrame);
     }

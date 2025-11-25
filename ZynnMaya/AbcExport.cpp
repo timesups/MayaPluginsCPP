@@ -34,13 +34,6 @@ void* AbcExport::creator()
     return new AbcExport();
 }
 
-enum ArgDataType
-{
-    STRING_ARRAY,
-    DOUBLE,
-    STRING
-};
-
 
 
 MStatus AbcExport::doIt(const MArgList& args)
@@ -84,8 +77,28 @@ MStatus AbcExport::doIt(const MArgList& args)
             return status;
         }
 
+
+
         index = 4;
 
+        double sExpend = args.asDouble(index, &status);
+        if (!status)
+        {
+            MGlobal::displayError("Failed to get start expend");
+            return status;
+        }
+
+        index = 5;
+        double eExpend = args.asDouble(index, &status);
+        if (!status)
+        {
+            MGlobal::displayError("Failed to get end expend");
+            return status;
+        }
+
+
+
+        index = 6;
         MString fName = args.asString(index, &status);
         if (!status)
         {
@@ -94,7 +107,7 @@ MStatus AbcExport::doIt(const MArgList& args)
         }
 
 
-        index = 5;
+        index = 7;
 
         bool refresh = args.asBool(index, &status);
         if (!status)
@@ -118,9 +131,12 @@ MStatus AbcExport::doIt(const MArgList& args)
 
 
 
+
+
+
         std::vector< FrameRangeArgs > frameRanges(1);
         frameRanges.back().startTime = startTime;
-        frameRanges.back().endTime = endTime;
+        frameRanges.back().endTime = endTime + sExpend + eExpend;
         frameRanges.back().strideTime = step;
 
         std::string fileName = fName.asChar();
@@ -561,13 +577,27 @@ MStatus AbcExport::doIt(const MArgList& args)
                 }
             }
 
+            if (*it < (startTime + sExpend))
+            {
+                MGlobal::viewFrame(startTime);
+            }
+            else if(*it > endTime + sExpend)
+            {
+                MGlobal::viewFrame(endTime);
+            }
+            else
+            {
+                MGlobal::viewFrame(*it - sExpend);
+            }
 
-            MGlobal::viewFrame(*it);
+            MGlobal::displayInfo(std::to_string(*it).c_str());
             if (computation.isInterruptRequested())
                 return MS::kFailure;
-
             bool lastFrame = job->eval(*it);
         }
+
+
+
 
         computation.endComputation();
 
