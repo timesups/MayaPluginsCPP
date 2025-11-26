@@ -40,12 +40,22 @@ MStatus AbcExport::doIt(const MArgList& args)
 {
     try
     {
-
         //从参数获取导出信息
         MStatus status;
 
         unsigned int index = 0;
-        MStringArray strDagpaths = args.asStringArray(index, &status);
+        MStringArray jobsStringArray = args.asStringArray(index, &status);
+
+        std::vector<MStringArray> jobsDagpath;
+
+        for (int i = 0; i < jobsStringArray.length(); i++)
+        {
+            MStringArray dagPathsString;
+            jobsStringArray[i].split(',', dagPathsString);
+            jobsDagpath.push_back(dagPathsString);
+        }
+
+
         if (!status)
         {
             MGlobal::displayError("Failed to get dags");
@@ -100,7 +110,7 @@ MStatus AbcExport::doIt(const MArgList& args)
 
 
         index = 6;
-        MString fName = args.asString(index, &status);
+        MStringArray file_names = args.asStringArray(index, &status);
         if (!status)
         {
             MGlobal::displayError("Failed to get file name");
@@ -117,21 +127,11 @@ MStatus AbcExport::doIt(const MArgList& args)
         }
 
 
-        std::string startExportMessage = "Export ";
-        for (int i = 0; i < strDagpaths.length(); i++)
-        {
-            startExportMessage = startExportMessage + strDagpaths[i].asChar() + ",";
+        if (file_names.length() != jobsStringArray.length()) {
+            MGlobal::displayError("path and jobs not matched");
+            return status;
         }
-        startExportMessage = 
-            startExportMessage + "\n"
-            + "  Start:" + std::to_string(startTime) + "\n"
-            + "  End:" + std::to_string(endTime) + "\n"
-            + "  FilePath:" + fName.asChar();
-        MGlobal::displayInfo(startExportMessage.c_str());
         //~从参数获取导出信息完成
-
-
-
 
 
         std::vector< FrameRangeArgs > frameRanges(1);
@@ -139,24 +139,31 @@ MStatus AbcExport::doIt(const MArgList& args)
         frameRanges.back().endTime = endTime + sExpend + eExpend;
         frameRanges.back().strideTime = step;
 
-        std::string fileName = fName.asChar();
 
 
-
-        util::ShapeSet dagPaths;
-
-        for (int i = 0; i < strDagpaths.length(); i++)
+        
+        std::vector<util::ShapeSet> dagPathsArray;
+      
+        for(int i = 0;i< jobsDagpath.size();i++)
         {
-            MSelectionList list;
-            status = MGlobal::getSelectionListByName(strDagpaths[i], list);
-            if (!status)
-                continue;
-            MDagPath dagPath;
-            status = list.getDagPath(0, dagPath);
-            if (!status)
-                continue;
-            dagPaths.insert(dagPath);
+            util::ShapeSet dagPaths;
+            for(int j=0;j<jobsDagpath[i].length();j++)
+            {
+                MSelectionList list;
+                status = MGlobal::getSelectionListByName(jobsDagpath[i][j], list);
+                if (!status)
+                    continue;
+                MDagPath dagPath;
+                status = list.getDagPath(0, dagPath);
+                if (!status)
+                    continue;
+                dagPaths.insert(dagPath);
+            }
+            dagPathsArray.push_back(dagPaths);
         }
+
+        std::cout << dagPathsArray.size() << std::endl;
+
 
         std::set<double> allFrameRange;
 
@@ -172,89 +179,17 @@ MStatus AbcExport::doIt(const MArgList& args)
                 frameRanges.back().endTime);
         }
 
+
+        for(int i=0;i<file_names.length();i++)
         {
-            // 1. 设置 MFileObject 并将文件名解析为绝对路径
-            MFileObject absoluteFile;
-            absoluteFile.setRawFullName(fileName.c_str());
-            // 如果 fileName 已经被确保是绝对路径，这句主要用于解析任何环境变量或别名
-            fileName = absoluteFile.resolvedFullName().asChar();
-
-            // 2. 检查父目录是否存在 (推荐保留，以确保文件可写)
-            MFileObject absoluteFilePath;
-            absoluteFilePath.setRawFullName(absoluteFile.path());
-            if (!absoluteFilePath.exists()) {
-                MString error;
-                error.format("Path ^1s does not exist!", absoluteFilePath.resolvedFullName());
-                MGlobal::displayError(error);
-                return MS::kFailure;
-            }
-
-            // 3. 检查文件是否正在被场景中的 AlembicNode 使用 (必须保留)
-            MItDependencyNodes dgIter(MFn::kPluginDependNode);
-            for (; !dgIter.isDone(); dgIter.next()) {
-                MFnDependencyNode alembicNode(dgIter.thisNode());
-                if (alembicNode.typeName() != "AlembicNode") {
-                    continue;
-                }
-
-                // 检查主文件属性
-                MPlug abcFilePlug = alembicNode.findPlug("abc_File", true);
-                if (!abcFilePlug.isNull())
-                {
-                    MFileObject alembicFile;
-                    alembicFile.setRawFullName(abcFilePlug.asString());
-                    if (alembicFile.exists())
-                    {
-                        if (alembicFile.resolvedFullName() == absoluteFile.resolvedFullName())
-                        {
-                            MString error = "Can't export to an Alembic file which is in use: ";
-                            error += absoluteFile.resolvedFullName();
-                            MGlobal::displayError(error);
-                            return MS::kFailure;
-                        }
-                    }
-                }
-
-                // 检查分层文件属性
-                MPlug abcLayerFilePlug = alembicNode.findPlug("abc_layerFiles", true);
-                if (!abcLayerFilePlug.isNull())
-                {
-                    MFnStringArrayData fnSAD(abcLayerFilePlug.asMObject());
-                    MStringArray layerFilenames = fnSAD.array();
-
-                    for (unsigned int l = 0; l < layerFilenames.length(); l++)
-                    {
-                        MFileObject thisAlembicFile;
-                        // ... path resolution logic retained ...
-                        thisAlembicFile.setResolveMethod(MFileObject::MFileResolveMethod::kInputFile);
-                        thisAlembicFile.setRawFullName(layerFilenames[l]);
-
-                        if (!thisAlembicFile.exists())
-                        {
-                            continue;
-                        }
-
-                        if (thisAlembicFile.resolvedFullName() == absoluteFile.resolvedFullName())
-                        {
-                            MString error = "Can't export to an Alembic file which is in use: ";
-                            error += absoluteFile.resolvedFullName();
-                            MGlobal::displayError(error);
-                            return MS::kFailure;
-                        }
-                    }
-                }
-            }
-
-            // 4. 检查写入权限 (必须保留)
-            std::ofstream ofs(fileName.c_str());
+            std::ofstream ofs(file_names[i].asChar());
             if (!ofs.is_open()) {
-                MString error = MString("Can't write to file: ") + fileName.c_str();
+                MString error = MString("Can't write to file: ") + file_names[i].asChar();
                 MGlobal::displayError(error);
                 return MS::kFailure;
             }
             ofs.close();
         }
-
 
 
         // if -frameRelativeSample argument is not specified for a frame range,
@@ -389,32 +324,6 @@ MStatus AbcExport::doIt(const MArgList& args)
             }
         }
 
-        if (dagPaths.size() > 1)
-        {
-            // check for validity of the DagPath relationships complexity : n^2
-
-            util::ShapeSet::const_iterator m, n;
-            util::ShapeSet::const_iterator end = dagPaths.end();
-            for (m = dagPaths.begin(); m != end; )
-            {
-                MDagPath path1 = *m;
-                m++;
-                for (n = m; n != end; n++)
-                {
-                    MDagPath path2 = *n;
-                    if (util::isAncestorDescendentRelationship(path1, path2))
-                    {
-                        MString errorMsg = path1.fullPathName();
-                        errorMsg += " and ";
-                        errorMsg += path2.fullPathName();
-                        errorMsg += " have an ancestor relationship.";
-                        MGlobal::displayError(errorMsg);
-                        return MS::kFailure;
-                    }
-                }  // for n
-            }  // for m
-        }
-
         AbcA::TimeSamplingPtr transTime, geoTime;
 
         if (hasRange)
@@ -500,8 +409,16 @@ MStatus AbcExport::doIt(const MArgList& args)
             }
         }
 
-        AbcWriteJobPtr job(new AbcWriteJob(fileName.c_str(), true,
-            transSamples, transTime, geoSamples, geoTime, dagPaths));
+        std::vector< AbcWriteJobPtr> job_list;
+
+        for(int i=0;i < dagPathsArray.size();i++)
+        {
+            AbcWriteJobPtr job(new AbcWriteJob(file_names[i].asChar(), true,
+                transSamples, transTime, geoSamples, geoTime, dagPathsArray[i]));
+
+            job_list.push_back(job);
+        }
+
 
 
         double localMin = *(transSamples.begin());
@@ -589,10 +506,11 @@ MStatus AbcExport::doIt(const MArgList& args)
             if (computation.isInterruptRequested())
                 return MS::kFailure;
 
+            for(auto single_job : job_list)
+            {
+                single_job->eval(*it);
+            }
 
-            //TIMER_START(Per_Frame);
-            bool lastFrame = job->eval(*it);
-            //TIMER_END(Per_Frame);
         }
         computation.endComputation();
 
