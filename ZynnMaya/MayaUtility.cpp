@@ -18,6 +18,12 @@
 #include <qtzlib/zlib.h>
 
 
+
+
+
+
+
+
 // this struct is used in function "bool util::isAnimated(MObject & object, bool checkParent)"
 struct NodesToCheckStruct
 {

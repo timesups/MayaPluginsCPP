@@ -40,6 +40,7 @@ MStatus AbcExport::doIt(const MArgList& args)
 {
     try
     {
+
         //从参数获取导出信息
         MStatus status;
 
@@ -133,7 +134,6 @@ MStatus AbcExport::doIt(const MArgList& args)
 
 
 
-
         std::vector< FrameRangeArgs > frameRanges(1);
         frameRanges.back().startTime = startTime;
         frameRanges.back().endTime = endTime + sExpend + eExpend;
@@ -158,11 +158,7 @@ MStatus AbcExport::doIt(const MArgList& args)
             dagPaths.insert(dagPath);
         }
 
-
-        MTime oldCurTime = MAnimControl::currentTime();
-
         std::set<double> allFrameRange;
-
 
         bool sampleGeo = true; // whether or not to subsample geometry
 
@@ -590,19 +586,15 @@ MStatus AbcExport::doIt(const MArgList& args)
                 MGlobal::viewFrame(*it - sExpend);
             }
 
-            MGlobal::displayInfo(std::to_string(*it).c_str());
             if (computation.isInterruptRequested())
                 return MS::kFailure;
+
+
+            //TIMER_START(Per_Frame);
             bool lastFrame = job->eval(*it);
+            //TIMER_END(Per_Frame);
         }
-
-
-
-
         computation.endComputation();
-
-        // set the time back
-        MGlobal::viewFrame(oldCurTime);
 
         return MS::kSuccess;
     }

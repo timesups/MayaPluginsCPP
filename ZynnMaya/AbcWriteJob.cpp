@@ -1,4 +1,8 @@
 #include "AbcWriteJob.h"
+#include "MayaUtility.h"
+
+
+
 
 #ifdef ALEMBIC_WITH_HDF5
 #include <Alembic/AbcCoreHDF5/All.h>
@@ -624,7 +628,6 @@ bool AbcWriteJob::eval(double iFrame)
             mShapeSamples ++;
             double curTime = iFrame * util::spf();
 
-
             //Export Mesh
             std::vector< MayaMeshWriterPtr >::iterator meshIt, meshEnd;
             meshEnd = mMeshList.end();
@@ -649,7 +652,6 @@ bool AbcWriteJob::eval(double iFrame)
                 mStats.mCurveAnimCVs += (*curveIt)->getNumCVs();
             }
 
-
             //Export Spline
             std::vector<MayaSplineWriterPtr>::iterator spIt, spEnd;
             spEnd = mSplineList.end();
@@ -658,7 +660,6 @@ bool AbcWriteJob::eval(double iFrame)
                 (*spIt)->write();
                 mStats.mCurveAnimCVs += (*spIt)->getNumCVs();
             }
-
         }
 
         checkFrame = mTransFrames.find(iFrame);

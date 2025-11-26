@@ -126,7 +126,6 @@ MayaNurbsCurveWriter::MayaNurbsCurveWriter(MDagPath & iDag,
 
 
 
-
     if (!mIsAnimated)
     {
         write();
