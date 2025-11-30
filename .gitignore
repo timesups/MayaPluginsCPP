@@ -8,3 +8,5 @@
 *.exp
 /intermedia
 /bin
+*.idb
+/ZynnMaya/x64/Debug
