@@ -81,7 +81,8 @@ bool GetSplineData(
     const MFnDependencyNode& node,
     std::vector<std::vector<uint64_t>>& PrimitiveInfosList,
     std::vector<std::vector<float>>& PositionsList,
-    std::vector<std::vector<float>>& WidthDataList);
+    std::vector<std::vector<float>>& WidthDataList,
+    bool writeDebugFile = false);
 
 // 0 dont write, 1 write static 0, 2 write anim 0, 3 write anim 1
 int getVisibilityType(const MPlug & iPlug);

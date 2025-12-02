@@ -54,7 +54,7 @@ MayaSplineWriter::MayaSplineWriter(MDagPath& iDag, Alembic::Abc::OObject& iParen
     std::vector<std::vector<uint64_t>> PrimitiveInfosList;
     std::vector<std::vector<float>> PositionsList;
     std::vector<std::vector<float>> WidthDataList;
-    util::GetSplineData(splineDepNode, PrimitiveInfosList, PositionsList, WidthDataList);
+    util::GetSplineData(splineDepNode, PrimitiveInfosList, PositionsList, WidthDataList, false);
 
     for (int i = 0; i < PrimitiveInfosList.size(); i++)
     {
@@ -93,7 +93,7 @@ void MayaSplineWriter::write()
     std::vector<std::vector<float>> PositionsList;
     std::vector<std::vector<float>> WidthDataList;
     //从spline节点中获取必要的信息
-    util::GetSplineData(splineDepNode, PrimitiveInfosList, PositionsList, WidthDataList);
+    util::GetSplineData(splineDepNode, PrimitiveInfosList, PositionsList, WidthDataList, false);
 
 
     Alembic::AbcGeom::OCurvesSchema::Sample samp;
@@ -124,7 +124,10 @@ void MayaSplineWriter::write()
     std::vector<float> knots;
     std::vector<Alembic::Util::uint8_t> orders(mCurves);
 
+
     int degree = 3;
+
+
     int curveIndex = 0;
     int cvIndex = 0;
 

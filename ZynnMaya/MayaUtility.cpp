@@ -220,136 +220,132 @@ bool util::GetSplineData(
     const MFnDependencyNode& node,
     std::vector<std::vector<uint64_t>>& PrimitiveInfosList,
     std::vector<std::vector<float>>& PositionsList,
-    std::vector<std::vector<float>>& WidthDataList)
+    std::vector<std::vector<float>>& WidthDataList,
+    bool writeDebugFile)
 {
-    try
+    //从xg节点中获取交互式毛发曲线的二进制数据
+    MPlug plug = node.findPlug("outSplineData", false);
+    MObject handle = plug.asMObject();
+    MFnPluginData pluginData(handle);
+    MPxData* data = pluginData.data();
+    ////可以输出调试文件
+    //if (writeDebugFile) {
+    //    std::ofstream outPutFile("D:/HairOutput.txt", std::ios::binary);
+    //    data->writeBinary(outPutFile);
+    //}
+    std::ostringstream buffer(std::ios::binary);
+    data->writeBinary(buffer);
+    std::string binary_string = buffer.str();
+    uint8Array originalData(binary_string.data(), binary_string.data() + binary_string.size());
+
+    //获取数据块信息
+    std::vector<BlockAddr> blockAddrs = GetBlocks(originalData);
+    //提取头部信息
+    BlockAddr infoBlockAddr = blockAddrs[0];
+    blockAddrs.erase(blockAddrs.begin());//删除第一个块,这个块表示信息,剩下的块表示毛发数据,刚好可以对应到头信息中的毛发组数量
+
+    json infoJson = json::parse(originalData.data() + infoBlockAddr.start, originalData.data() + infoBlockAddr.end);
+    json headerJson = infoJson["Header"];
+    //如果有未知的编码格式则返回假
+    if (headerJson["GroupBase64"])
+        return false;
+    size_t dataGroupCount = headerJson["GroupCount"];
+
+    DecompressTaskData taskData;
+    //仅在数据需要解压时解压
+    if (headerJson["GroupDeflate"])
     {
-        //从xg节点中获取交互式毛发曲线的二进制数据
-        MPlug plug = node.findPlug("outSplineData", false);
-        MObject handle = plug.asMObject();
-        MFnPluginData pluginData(handle);
-        MPxData* data = pluginData.data();
+        taskData.taskCount = dataGroupCount;
+        taskData.decompressedThreadData.resize(dataGroupCount);
 
-
-        std::ostringstream buffer(std::ios::binary);
-        data->writeBinary(buffer);
-        std::string binary_string = buffer.str();
-        uint8Array originalData(binary_string.data(), binary_string.data() + binary_string.size());
-
-        //获取数据块信息
-        std::vector<BlockAddr> blockAddrs = GetBlocks(originalData);
-        //提取头部信息
-        BlockAddr infoBlockAddr = blockAddrs[0];
-        blockAddrs.erase(blockAddrs.begin());//删除第一个块,这个块表示信息,剩下的块表示毛发数据,刚好可以对应到头信息中的毛发组数量
-
-        json infoJson = json::parse(originalData.data() + infoBlockAddr.start, originalData.data() + infoBlockAddr.end);
-        json headerJson = infoJson["Header"];
-        //如果有未知的编码格式则返回假
-        if (headerJson["GroupBase64"])
-            return false;
-        size_t dataGroupCount = headerJson["GroupCount"];
-
-        DecompressTaskData taskData;
-        //仅在数据需要解压时解压
-        if (headerJson["GroupDeflate"])
+        //多线程解压数据
+        if (MThreadPool::init() != MStatus::kSuccess)
         {
-            taskData.taskCount = dataGroupCount;
-            taskData.decompressedThreadData.resize(dataGroupCount);
-
-            //多线程解压数据
-            if (MThreadPool::init() != MStatus::kSuccess)
-            {
-                MGlobal::displayError("Failed to init Muti Thread Pool");
-                return false;
-            }
-
-            for (size_t groupIndex = 0; groupIndex < dataGroupCount; groupIndex++)
-            {
-                taskData.decompressedThreadData[groupIndex].dataInput = std::vector<unsigned char>(originalData.begin() + blockAddrs[groupIndex].start + 32, originalData.begin() + blockAddrs[groupIndex].end);
-            }
-            MThreadPool::newParallelRegion(TaskDecomposerForDecompress, &taskData);
-
-            MThreadPool::release();
-            MThreadPool::release();
-
+            MGlobal::displayError("Failed to init Muti Thread Pool");
+            return false;
         }
 
-
-        //分析解压后的数据的数据块
-        std::vector<std::vector<uint8Array>> decompressedDataBlocks;
         for (size_t groupIndex = 0; groupIndex < dataGroupCount; groupIndex++)
         {
-            std::vector<unsigned char> validData;
-
-            if (headerJson["GroupDeflate"])
-                validData = taskData.decompressedThreadData[groupIndex].dataOutput;
-            else
-                memcpy(validData.data(), originalData.data() + blockAddrs[groupIndex].start + 32, blockAddrs[groupIndex].end - blockAddrs[groupIndex].start - 32);
-
-            std::vector<BlockAddr> subBlocks = GetBlocks(validData);
-            std::vector<uint8Array> subDatas;
-            for (const BlockAddr& info : subBlocks)
-            {
-                subDatas.push_back(uint8Array(validData.begin() + info.start, validData.begin() + info.end));
-            }
-            decompressedDataBlocks.push_back(subDatas);
+            taskData.decompressedThreadData[groupIndex].dataInput = std::vector<unsigned char>(originalData.begin() + blockAddrs[groupIndex].start + 32, originalData.begin() + blockAddrs[groupIndex].end);
         }
+        MThreadPool::newParallelRegion(TaskDecomposerForDecompress, &taskData);
 
+        MThreadPool::release();
+        MThreadPool::release();
 
-        //收集所有的毛发信息
-        std::unordered_map<std::string, std::vector<AddressInfo>> Items;
-        for (auto& info : infoJson["Items"])
-            ReadItems(info, Items);
-        for (auto& info : infoJson["RefMeshArray"])
-            ReadItems(info, Items);
-
-
-        //遍历所有毛发信息获取需要的毛发信息
-        for (auto pair : Items)
-        {
-            if (pair.first == "PrimitiveInfos")
-            {
-                for (AddressInfo addr : pair.second)
-                {
-                    uint8Array decompressedData = decompressedDataBlocks[addr.group][addr.index];
-                    std::vector<uint64_t> PrimitiveInfos;
-                    for (int i = 0; i < decompressedData.size(); i += 12)
-                    {
-                        uint32_t* value1 = (uint32_t*)(decompressedData.data() + i);
-                        uint64_t* value2 = (uint64_t*)(decompressedData.data() + i + 4);
-                        PrimitiveInfos.push_back(*value1);
-                        PrimitiveInfos.push_back(*value2);
-                    }
-                    PrimitiveInfosList.push_back(PrimitiveInfos);
-                }
-            }
-            else if (pair.first == "Positions")
-            {
-                for (AddressInfo addr : pair.second)
-                {
-                    uint8Array decompressedData = decompressedDataBlocks[addr.group][addr.index];
-                    std::vector<float> pos((float*)decompressedData.data(), (float*)decompressedData.data() + decompressedData.size() / 4);
-                    PositionsList.push_back(pos);
-                }
-            }
-            else if (pair.first == "WIDTH_CV")
-            {
-                for (AddressInfo addr : pair.second)
-                {
-                    uint8Array decompressedData = decompressedDataBlocks[addr.group][addr.index];
-                    std::vector<float> widthData((float*)decompressedData.data(), (float*)decompressedData.data() + decompressedData.size() / 4);
-                    WidthDataList.push_back(widthData);
-                }
-            }
-        }
-
-        return true;
     }
-    catch (const std::exception&)
+
+
+    //分析解压后的数据的数据块
+    std::vector<std::vector<uint8Array>> decompressedDataBlocks;
+    for (size_t groupIndex = 0; groupIndex < dataGroupCount; groupIndex++)
     {
-        return false;
+        std::vector<unsigned char> validData;
+
+        if (headerJson["GroupDeflate"])
+            validData = taskData.decompressedThreadData[groupIndex].dataOutput;
+        else
+            memcpy(validData.data(), originalData.data() + blockAddrs[groupIndex].start + 32, blockAddrs[groupIndex].end - blockAddrs[groupIndex].start - 32);
+
+        std::vector<BlockAddr> subBlocks = GetBlocks(validData);
+        std::vector<uint8Array> subDatas;
+        for (const BlockAddr& info : subBlocks)
+        {
+            subDatas.push_back(uint8Array(validData.begin() + info.start, validData.begin() + info.end));
+        }
+        decompressedDataBlocks.push_back(subDatas);
     }
 
+
+    //收集所有的毛发信息
+    std::unordered_map<std::string, std::vector<AddressInfo>> Items;
+    for (auto& info : infoJson["Items"])
+        ReadItems(info, Items);
+    for (auto& info : infoJson["RefMeshArray"])
+        ReadItems(info, Items);
+
+
+    //遍历所有毛发信息获取需要的毛发信息
+    for (auto pair : Items)
+    {
+        if (pair.first == "PrimitiveInfos")
+        {
+            for (AddressInfo addr : pair.second)
+            {
+                uint8Array decompressedData = decompressedDataBlocks[addr.group][addr.index];
+                std::vector<uint64_t> PrimitiveInfos;
+                for (int i = 0; i < decompressedData.size(); i += 12)
+                {
+                    uint32_t* value1 = (uint32_t*)(decompressedData.data() + i);
+                    uint64_t* value2 = (uint64_t*)(decompressedData.data() + i + 4);
+                    PrimitiveInfos.push_back(*value1);
+                    PrimitiveInfos.push_back(*value2);
+                }
+                PrimitiveInfosList.push_back(PrimitiveInfos);
+            }
+        }
+        else if (pair.first == "Positions")
+        {
+            for (AddressInfo addr : pair.second)
+            {
+                uint8Array decompressedData = decompressedDataBlocks[addr.group][addr.index];
+                std::vector<float> pos((float*)decompressedData.data(), (float*)decompressedData.data() + decompressedData.size() / 4);
+                PositionsList.push_back(pos);
+            }
+        }
+        else if (pair.first == "WIDTH_CV")
+        {
+            for (AddressInfo addr : pair.second)
+            {
+                uint8Array decompressedData = decompressedDataBlocks[addr.group][addr.index];
+                std::vector<float> widthData((float*)decompressedData.data(), (float*)decompressedData.data() + decompressedData.size() / 4);
+                WidthDataList.push_back(widthData);
+            }
+        }
+    }
+
+    return true;
 }
 
 // returns 0 if static, 1 if sampled, and 2 if a curve
