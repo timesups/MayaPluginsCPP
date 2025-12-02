@@ -398,7 +398,7 @@ MayaMeshWriter::MayaMeshWriter(MDagPath & iDag,
         }
     }
 
-    if (mWriteColorSets)
+    if (false)
     {
         MStringArray colorSetNames;
         lMesh.getColorSetNames(colorSetNames);
