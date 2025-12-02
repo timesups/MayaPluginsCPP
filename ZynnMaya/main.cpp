@@ -14,13 +14,6 @@ MStatus initializePlugin(MObject obj)
     {
         status.perror("registerCommand");
     }
-
-    //MString info = "AbcExport v";
-    //info += ABCEXPORT_VERSION;
-    //info += " using ";
-    //info += Alembic::Abc::GetLibraryVersion().c_str();
-    //MGlobal::displayInfo(info);
-
     return status;
 }
 
@@ -35,8 +28,6 @@ MStatus uninitializePlugin(MObject obj)
     {
         status.perror("deregisterCommand");
     }
-
-    MGlobal::executeCommandOnIdle("AlembicDeleteUI");
 
     return status;
 }

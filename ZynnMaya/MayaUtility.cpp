@@ -220,19 +220,13 @@ bool util::GetSplineData(
     const MFnDependencyNode& node,
     std::vector<std::vector<uint64_t>>& PrimitiveInfosList,
     std::vector<std::vector<float>>& PositionsList,
-    std::vector<std::vector<float>>& WidthDataList,
-    bool writeDebugFile)
+    std::vector<std::vector<float>>& WidthDataList)
 {
     //从xg节点中获取交互式毛发曲线的二进制数据
     MPlug plug = node.findPlug("outSplineData", false);
     MObject handle = plug.asMObject();
     MFnPluginData pluginData(handle);
     MPxData* data = pluginData.data();
-    ////可以输出调试文件
-    //if (writeDebugFile) {
-    //    std::ofstream outPutFile("D:/HairOutput.txt", std::ios::binary);
-    //    data->writeBinary(outPutFile);
-    //}
     std::ostringstream buffer(std::ios::binary);
     data->writeBinary(buffer);
     std::string binary_string = buffer.str();
