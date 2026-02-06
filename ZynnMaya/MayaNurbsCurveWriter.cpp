@@ -181,7 +181,12 @@ MStatus MayaNurbsCurveWriter::BakeUV(MDagPath splineDagPath)
     MStatus status;
     MFnDependencyNode depNode(splineDagPath.transform());
 
+#if MAYA_API_VERSION==20180600
     MPlug plug = depNode.findPlug(attrMeshUVName, &status);
+#elif MAYA_API_VERSION==20230300
+    MPlug plug = depNode.findPlug(attrMeshUVName,true, &status);
+#endif
+
     if (!status)
     {
         MString message = "Failed to get guide node from:" + depNode.name();

@@ -99,7 +99,14 @@ MStatus get_conn_shader(const MObject& sg, MFnDependencyNode& shader)
 {
     MStatus status;
     MFnDependencyNode sgNode(sg);
+
+#if MAYA_API_VERSION==20180600
     MPlug plugSurfaceShader = sgNode.findPlug("surfaceShader", &status);
+#elif MAYA_API_VERSION==20230300
+    MPlug plugSurfaceShader = sgNode.findPlug("surfaceShader",true ,&status);
+#endif
+
+
     if (!status)
         return status;
     MObject shaderNode = plugSurfaceShader.source().node();
@@ -138,9 +145,18 @@ getOutConnectedSG( const MDagPath &shapeDPath )
     // we want to prune the iteration if the node is not a shading engine
     itDG.enablePruningOnFilter();
 
+
+
     // iterate through the output connected shading engines
+#if MAYA_API_VERSION==20180600
     for( ; itDG.isDone()!= true; itDG.next() )
         connSG.append( itDG.thisNode() );
+#elif MAYA_API_VERSION==20230300
+    for (; itDG.isDone() != true; itDG.next())
+        connSG.append(itDG.currentItem());
+#endif
+
+
 
     return connSG;
 }

@@ -2,15 +2,6 @@
 #include "Foundation.h"
 #include <Alembic/Abc/OArrayProperty.h>
 #include <Alembic/Abc/OScalarProperty.h>
-#include <chrono>
-
-
-#define TIMER_START(name) auto name##_start = std::chrono::high_resolution_clock::now()
-#define TIMER_END(name) \
-    auto name##_end = std::chrono::high_resolution_clock::now(); \
-    auto name##_duration = std::chrono::duration_cast<std::chrono::microseconds>(name##_end - name##_start); \
-    std::cout << #name << " 运行时间: " << name##_duration.count()/1000 << " 毫秒" << std::endl
-
 
 namespace util
 {

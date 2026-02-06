@@ -18,7 +18,7 @@ public:
 public:
     void WriteGroupName();
     void WriteGroupId(int group_id);
-    MStatus MayaSplineWriter::GetGuideDagPath(MDagPath& outDag);
+    MStatus GetGuideDagPath(MDagPath& outDag);
     MStatus BakeUV();
     std::vector<MPoint> rootList;
 public:

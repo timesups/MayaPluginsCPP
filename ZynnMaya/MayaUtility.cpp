@@ -22,8 +22,6 @@
 
 
 
-
-
 // this struct is used in function "bool util::isAnimated(MObject & object, bool checkParent)"
 struct NodesToCheckStruct
 {
@@ -222,15 +220,36 @@ bool util::GetSplineData(
     std::vector<std::vector<float>>& PositionsList,
     std::vector<std::vector<float>>& WidthDataList)
 {
+    std::cout << "start to get spline: " << node.name() << "'s data" << std::endl;
     //从xg节点中获取交互式毛发曲线的二进制数据
-    MPlug plug = node.findPlug("outSplineData", false);
+    MPlug plug = node.findPlug("outRenderData", false);
     MObject handle = plug.asMObject();
     MFnPluginData pluginData(handle);
     MPxData* data = pluginData.data();
     std::ostringstream buffer(std::ios::binary);
-    data->writeBinary(buffer);
+
+    if (!data || !data->writeBinary(buffer)) 
+    {
+        if (!data) 
+        {
+            return false;
+        }
+        //刷新节点上游
+        MString fullName = node.name();
+        MString cmd1 = "dgdirty -a ";
+        cmd1 += fullName;
+        MGlobal::executeCommand(cmd1);
+        if (!data->writeBinary(buffer)) 
+        {
+            return false;
+        }
+    }
+        
+    
     std::string binary_string = buffer.str();
     uint8Array originalData(binary_string.data(), binary_string.data() + binary_string.size());
+
+    std::cout << "spline data read successful" << std::endl;
 
     //获取数据块信息
     std::vector<BlockAddr> blockAddrs = GetBlocks(originalData);
@@ -270,7 +289,7 @@ bool util::GetSplineData(
 
     }
 
-
+    std::cout << "spline data decompress successful" << std::endl;
     //分析解压后的数据的数据块
     std::vector<std::vector<uint8Array>> decompressedDataBlocks;
     for (size_t groupIndex = 0; groupIndex < dataGroupCount; groupIndex++)
@@ -339,6 +358,7 @@ bool util::GetSplineData(
         }
     }
 
+    std::cout << "get spline successful" << std::endl;
     return true;
 }
 
@@ -537,7 +557,11 @@ bool util::isAnimated(MObject & object, bool checkParent)
     NodesToCheckStruct nodeStruct;
     for (; !iter.isDone(); iter.next())
     {
+#if MAYA_API_VERSION==20180600
         MObject node = iter.thisNode();
+#elif MAYA_API_VERSION==20230300
+        MObject node = iter.currentItem();
+#endif
 
         if (node.hasFn(MFn::kPluginDependNode) ||
                 node.hasFn( MFn::kConstraint ) ||

@@ -162,9 +162,6 @@ MStatus AbcExport::doIt(const MArgList& args)
             dagPathsArray.push_back(dagPaths);
         }
 
-        std::cout << dagPathsArray.size() << std::endl;
-
-
         std::set<double> allFrameRange;
 
         bool sampleGeo = true; // whether or not to subsample geometry
@@ -203,14 +200,10 @@ MStatus AbcExport::doIt(const MArgList& args)
 
         // the list of frame ranges for sampling
         std::vector<FrameRangeArgs> sampleRanges;
-        std::vector<FrameRangeArgs> preRollRanges;
         for (std::vector<FrameRangeArgs>::const_iterator range =
             frameRanges.begin(); range != frameRanges.end(); ++range)
         {
-            if (range->preRoll)
-                preRollRanges.push_back(*range);
-            else
-                sampleRanges.push_back(*range);
+            sampleRanges.push_back(*range);
         }
 
         // the list of frames written into the abc file
@@ -300,29 +293,6 @@ MStatus AbcExport::doIt(const MArgList& args)
             }
         }
 
-        // the list of frames to pre-roll
-        std::set<double> preRollSamples;
-        for (std::vector<FrameRangeArgs>::const_iterator range =
-            preRollRanges.begin(); range != preRollRanges.end(); ++range)
-        {
-            for (double frame = range->startTime;
-                frame <= range->endTime;
-                frame += range->strideTime)
-            {
-                for (std::set<double>::const_iterator shutter =
-                    range->shutterSamples.begin();
-                    shutter != range->shutterSamples.end(); ++shutter)
-                {
-                    double curFrame = *shutter + frame;
-                    preRollSamples.insert(curFrame);
-                }
-            }
-
-            if (preRollSamples.empty())
-            {
-                preRollSamples.insert(range->startTime);
-            }
-        }
 
         AbcA::TimeSamplingPtr transTime, geoTime;
 
@@ -431,32 +401,10 @@ MStatus AbcExport::doIt(const MArgList& args)
         last--;
         double globalMax = *last;
 
-        // if the min of our current frame range is beyond
-        // what we know about, pad a few more frames
-        if (localMin > globalMax)
-        {
-            for (double f = globalMax; f < localMin; f++)
-            {
-                allFrameRange.insert(f);
-            }
-        }
-
-        // if the max of our current frame range is beyond
-        // what we know about, pad a few more frames
-        if (localMax < globalMin)
-        {
-            for (double f = localMax; f < globalMin; f++)
-            {
-                allFrameRange.insert(f);
-            }
-        }
 
         // right now we just copy over the translation samples since
         // they are guaranteed to contain all the geometry samples
         allFrameRange.insert(transSamples.begin(), transSamples.end());
-
-        // copy over the pre-roll samples
-        allFrameRange.insert(preRollSamples.begin(), preRollSamples.end());
 
 
         //遍历每一帧
@@ -466,29 +414,13 @@ MStatus AbcExport::doIt(const MArgList& args)
         MComputation computation;
         computation.beginComputation();
 
+        std::cout << "###########Start to Export abc cache############" << std::endl;
 
         for (; it != itEnd; it++)
         {
-            if(refresh)
-            {
-                //逐帧刷新
-                MItDependencyNodes itnodes;
 
-                for (; !itnodes.isDone(); itnodes.next())
-                {
-                    MFnDependencyNode node(itnodes.thisNode());
-                    if (node.typeName() == "xgmCurveToSpline")
-                    {
-                        std::random_device rd;
-                        std::uniform_int_distribution<int> dist(0, 9);
-
-                        MPlug plug_speed = node.findPlug("speed");
-                        plug_speed.setFloat(dist(rd));
-
-                    }
-
-                }
-            }
+            std::string message = "current frame is " + std::to_string(*it);
+            MGlobal::displayInfo(message.c_str());
 
             if (*it < (startTime + sExpend))
             {
@@ -503,17 +435,22 @@ MStatus AbcExport::doIt(const MArgList& args)
                 MGlobal::viewFrame(*it - sExpend);
             }
 
+            MGlobal::executeCommand("refresh -f");
             if (computation.isInterruptRequested())
                 return MS::kFailure;
 
+
+            std::cout << "Write frame:" << *it << std::endl;
             for(auto single_job : job_list)
             {
+
                 single_job->eval(*it);
             }
 
         }
-        computation.endComputation();
 
+        computation.endComputation();
+        std::cout << "###########abc file exported############" << std::endl;
         return MS::kSuccess;
     }
     catch (Alembic::Util::Exception& e)
@@ -530,7 +467,13 @@ MStatus AbcExport::doIt(const MArgList& args)
         MGlobal::displayError(theError);
         return MS::kFailure;
     }
-
+    catch (std::runtime_error&e)
+    {
+        MString theError("std::runtime_error: ");
+        theError += e.what();
+        MGlobal::displayError(theError);
+        return MS::kFailure;
+    }
 }
 
 

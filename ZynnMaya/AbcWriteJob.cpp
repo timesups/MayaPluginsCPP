@@ -298,8 +298,9 @@ bool AbcWriteJob::checkCurveGrp()
 
 void AbcWriteJob::setup(double iFrame, MayaTransformWriterPtr iParent, GetMembersMap& gmMap)
 {
-    MStatus status;
+    std::cout << "start to setup dagpath :" << mCurDag.fullPathName() << std::endl;
 
+    MStatus status;
 
     MObject ob = mCurDag.node();
 
@@ -437,6 +438,7 @@ void AbcWriteJob::setup(double iFrame, MayaTransformWriterPtr iParent, GetMember
     //load as spline
     else if (fnDepNode.typeName() == "xgmSplineDescription")
     {
+        std::cout << "Export spline :" << fnDepNode.name() << std::endl;
         MFnDependencyNode fnDepNode(ob, &status);
 
         if (status != MS::kSuccess)
@@ -462,7 +464,9 @@ void AbcWriteJob::setup(double iFrame, MayaTransformWriterPtr iParent, GetMember
 
             if(status)
             {
-                MayaNurbsCurveWriterPtr nurbsCurve = MayaNurbsCurveWriterPtr(new MayaNurbsCurveWriter(guideDagPath, mRoot.getTop(), mShapeTimeIndex, true,spline->GuideAnimation));
+                Alembic::Abc::OObject top = mRoot.getTop();
+
+                MayaNurbsCurveWriterPtr nurbsCurve = MayaNurbsCurveWriterPtr(new MayaNurbsCurveWriter(guideDagPath, top, mShapeTimeIndex, true,spline->GuideAnimation));
 
 
                 mCurveListForAttr.push_back(nurbsCurve);
@@ -535,8 +539,10 @@ AbcWriteJob::~AbcWriteJob()
 
 bool AbcWriteJob::eval(double iFrame)
 {
+
     if (iFrame == mFirstFrame)
     {
+        std::cout << "Start Export First Frame" << std::endl;
         // check if the shortnames of any two nodes are the same
         // if so, exit here
         hasDuplicates(dagPaths, 0xffffffff);
@@ -562,12 +568,17 @@ bool AbcWriteJob::eval(double iFrame)
                 mFileName, appWriter, userInfo,
                 Alembic::Abc::ErrorHandler::kThrowPolicy);
         }
+
+
+#if MAYA_API_VERSION==20180600
         else
         {
             mRoot = CreateArchiveWithInfo(Alembic::AbcCoreHDF5::WriteArchive(),
                 mFileName, appWriter, userInfo,
                 Alembic::Abc::ErrorHandler::kThrowPolicy);
         }
+#endif
+
         mShapeTimeIndex = mRoot.addTimeSampling(*mShapeTime);
         mTransTimeIndex = mRoot.addTimeSampling(*mTransTime);
 

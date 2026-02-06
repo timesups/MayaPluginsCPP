@@ -22,6 +22,7 @@ T GetAttribute(MObject node,MString attrributeName,T defaultValue)
 MayaSplineWriter::MayaSplineWriter(MDagPath& iDag, Alembic::Abc::OObject& iParent, Alembic::Util::uint32_t iTimeIndex):
     mRootDagPath(iDag)
     {
+    std::cout << "Start to create spline as wrap object" << std::endl;
     MStatus stat;
     MFnDependencyNode fnDepNode(iDag.node(), &stat);
     MString name = fnDepNode.name();
@@ -54,7 +55,12 @@ MayaSplineWriter::MayaSplineWriter(MDagPath& iDag, Alembic::Abc::OObject& iParen
     std::vector<std::vector<uint64_t>> PrimitiveInfosList;
     std::vector<std::vector<float>> PositionsList;
     std::vector<std::vector<float>> WidthDataList;
-    util::GetSplineData(splineDepNode, PrimitiveInfosList, PositionsList, WidthDataList);
+
+    if (!util::GetSplineData(splineDepNode, PrimitiveInfosList, PositionsList, WidthDataList))
+    {
+        throw std::runtime_error("Failed to get spline data");
+        return;
+    }
 
     for (int i = 0; i < PrimitiveInfosList.size(); i++)
     {
@@ -87,14 +93,17 @@ MayaSplineWriter::MayaSplineWriter(MDagPath& iDag, Alembic::Abc::OObject& iParen
 
 void MayaSplineWriter::write()
 {
-
+    std::cout << "Start to wirte Spline" << std::endl;
     MFnDependencyNode splineDepNode(mRootDagPath.node());
     std::vector<std::vector<uint64_t>> PrimitiveInfosList;
     std::vector<std::vector<float>> PositionsList;
     std::vector<std::vector<float>> WidthDataList;
     //从spline节点中获取必要的信息
-    util::GetSplineData(splineDepNode, PrimitiveInfosList, PositionsList, WidthDataList);
-
+    if (!util::GetSplineData(splineDepNode, PrimitiveInfosList, PositionsList, WidthDataList))
+    {
+        throw std::runtime_error("Failed to get spline data");
+        return;
+    }
 
     Alembic::AbcGeom::OCurvesSchema::Sample samp;
     samp.setBasis(Alembic::AbcGeom::kBsplineBasis);
@@ -180,6 +189,8 @@ void MayaSplineWriter::write()
 
     }
 
+    std::cout << "fill spline data successful" << std::endl;
+
     samp.setCurvesNumVertices(Alembic::Abc::Int32ArraySample(nVertices));
     samp.setPositions(Alembic::Abc::V3fArraySample(
         (const Imath::V3f*)&points.front(), points.size() / 3
@@ -189,6 +200,7 @@ void MayaSplineWriter::write()
     ));
     samp.setKnots(Alembic::Abc::FloatArraySample(knots));
     mSchema.set(samp);
+    std::cout << "Spline write successful" << std::endl;
 }
 
 bool MayaSplineWriter::isAnimated() const
@@ -232,7 +244,13 @@ MStatus MayaSplineWriter::GetGuideDagPath(MDagPath &outDag)
     MStatus status;
 
     MFnDependencyNode depNode(mRootDagPath.transform());
+
+#if MAYA_API_VERSION==20180600
     MPlug plug = depNode.findPlug(attrGuideGroupName, &status);
+#elif MAYA_API_VERSION==20230300
+    MPlug plug = depNode.findPlug(attrGuideGroupName, true,&status);
+#endif
+
     if(!status)
     {
         MString message = "Failed to get guide node from:" + depNode.name();
@@ -241,7 +259,12 @@ MStatus MayaSplineWriter::GetGuideDagPath(MDagPath &outDag)
     }
 
     MObject object = plug.source().node();
+
+#if MAYA_API_VERSION==20180600
     outDag = MDagPath::getAPathTo(object);
+#elif MAYA_API_VERSION==20230300
+     MDagPath::getAPathTo(object, outDag);
+#endif
 
     return status;
 }
@@ -254,7 +277,14 @@ MStatus MayaSplineWriter::BakeUV()
     MStatus status;
     MFnDependencyNode depNode(mRootDagPath.transform());
 
+
+
+#if MAYA_API_VERSION==20180600
     MPlug plug = depNode.findPlug(attrMeshUVName, &status);
+#elif MAYA_API_VERSION==20230300
+    MPlug plug = depNode.findPlug(attrMeshUVName,true, &status);
+#endif
+
     if (!status)
     {
         MString message = "Failed to get guide node from:" + depNode.name();
