@@ -354,6 +354,8 @@ void AbcWriteJob::setup(double iFrame, MayaTransformWriterPtr iParent, GetMember
                 *iParent, mCurDag, mTransTimeIndex));
         }
 
+        trans->write();
+
         if (trans->isAnimated() && mTransTimeIndex != 0)
         {
            mTransList.push_back(trans);
@@ -395,7 +397,7 @@ void AbcWriteJob::setup(double iFrame, MayaTransformWriterPtr iParent, GetMember
             Alembic::Abc::OObject obj = iParent->getObject();
             MayaMeshWriterPtr mesh(new MayaMeshWriter(mCurDag, obj,
                 mShapeTimeIndex,gmMap));
-
+            mesh->write();
             if (mesh->isAnimated() && mShapeTimeIndex != 0)
             {
                 mMeshList.push_back(mesh);
@@ -467,7 +469,7 @@ void AbcWriteJob::setup(double iFrame, MayaTransformWriterPtr iParent, GetMember
                 Alembic::Abc::OObject top = mRoot.getTop();
 
                 MayaNurbsCurveWriterPtr nurbsCurve = MayaNurbsCurveWriterPtr(new MayaNurbsCurveWriter(guideDagPath, top, mShapeTimeIndex, true,spline->GuideAnimation));
-
+                nurbsCurve->write();
 
                 mCurveListForAttr.push_back(nurbsCurve);
                 nurbsCurve->groupName = spline->groupName;
@@ -499,7 +501,7 @@ void AbcWriteJob::setup(double iFrame, MayaTransformWriterPtr iParent, GetMember
                 groupNames.push_back(spline->groupName);
             }
 
-
+            spline->write();
             if (spline->isAnimated() && mShapeTimeIndex != 0)
             {
                 mSplineList.push_back(spline);
